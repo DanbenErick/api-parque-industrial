@@ -16,10 +16,10 @@ export const getAll = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const getActivosPorPeriodo = async (req: Request, res: Response): Promise<any> => {
+export const getActivosPorPeriodo = async (req: Request<{ periodo_id: string }>, res: Response): Promise<any> => {
   const { periodo_id } = req.params;
   try {
-    const cargos = await catalogoRepo.findActivosPorPeriodo(periodo_id);
+    const cargos = await catalogoRepo.findActivosPorPeriodo(Number(periodo_id));
     res.json(cargos);
   } catch (error) {
     console.error('Error al obtener cargos por periodo:', error);
@@ -27,10 +27,19 @@ export const getActivosPorPeriodo = async (req: Request, res: Response): Promise
   }
 };
 
-export const create = async (req: Request, res: Response): Promise<any> => {
+interface ICreateCargoBody {
+  tipo: string;
+  descripcion: string;
+  monto_defecto: number;
+  es_activo?: boolean;
+  periodos_ids?: number[];
+}
+
+export const create = async (req: Request<{}, any, ICreateCargoBody>, res: Response): Promise<any> => {
   const { tipo, descripcion, monto_defecto, es_activo, periodos_ids } = req.body;
   if (!tipo || !descripcion || monto_defecto === undefined) {
-    return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    res.status(400).json({ error: 'Faltan campos obligatorios' });
+    return;
   }
   
   try {
@@ -45,13 +54,21 @@ export const create = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const update = async (req: Request, res: Response): Promise<any> => {
+interface IUpdateCargoBody {
+  tipo?: string;
+  descripcion?: string;
+  monto_defecto?: number;
+  es_activo?: boolean;
+  periodos_ids?: number[];
+}
+
+export const update = async (req: Request<{ id: string }, any, IUpdateCargoBody>, res: Response): Promise<any> => {
   const { id } = req.params;
   const { tipo, descripcion, monto_defecto, es_activo, periodos_ids } = req.body;
   
   try {
     await catalogoRepo.update(
-      id, 
+      Number(id), 
       { tipo, descripcion, monto_defecto, es_activo }, 
       periodos_ids
     );
@@ -62,11 +79,14 @@ export const update = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const remove = async (req: Request, res: Response): Promise<any> => {
+export const remove = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
   const { id } = req.params;
   try {
-    const affectedRows = await catalogoRepo.softDelete(id);
-    if (affectedRows === 0) return res.status(404).json({ error: 'Cargo no encontrado' });
+    const affectedRows = await catalogoRepo.softDelete(Number(id));
+    if (affectedRows === 0) {
+      res.status(404).json({ error: 'Cargo no encontrado' });
+      return;
+    }
     res.json({ message: 'Cargo eliminado exitosamente' });
   } catch (error) {
     console.error('Error al eliminar cargo:', error);

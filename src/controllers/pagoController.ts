@@ -5,7 +5,12 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
-export const getPagos = async (req: Request, res: Response): Promise<any> => {
+interface IGetPagosQuery {
+  year?: string;
+  periodo?: string;
+}
+
+export const getPagos = async (req: Request<{}, any, any, IGetPagosQuery>, res: Response): Promise<any> => {
   try {
     const filters = {
       year: req.query.year,
@@ -19,7 +24,15 @@ export const getPagos = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const registrarPago = async (req: Request, res: Response): Promise<any> => {
+interface IRegistrarPagoBody {
+  recibo_id: number;
+  metodo_pago: string;
+  monto_pagado: number;
+  numero_operacion?: string;
+  comprobante_url?: string;
+}
+
+export const registrarPago = async (req: Request<{}, any, IRegistrarPagoBody>, res: Response): Promise<any> => {
   try {
     // req.user.id is passed to the repo to be set as @current_user_id for SQL triggers
     await pagoRepo.createConTransaccion(req.body, req.user?.id || 0);
@@ -42,7 +55,7 @@ export const registrarPago = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const exportReportePdf = async (req: Request, res: Response): Promise<any> => {
+export const exportReportePdf = async (req: Request<{}, any, any, IGetPagosQuery>, res: Response): Promise<any> => {
   try {
     const filters = {
       year: req.query.year,
@@ -198,7 +211,7 @@ export const exportReportePdf = async (req: Request, res: Response): Promise<any
   }
 };
 
-export const exportResumenPagosExcel = async (req: Request, res: Response): Promise<any> => {
+export const exportResumenPagosExcel = async (req: Request<{}, any, any, IGetPagosQuery>, res: Response): Promise<any> => {
   try {
     const filters = {
       year: req.query.year,

@@ -59,7 +59,8 @@ const loginLimiter = rateLimit({
   message: { error: 'Demasiados intentos de inicio de sesión. Intente nuevamente en 15 minutos.' },
   skipSuccessfulRequests: true // Solo cuenta intentos fallidos
 });
-app.use(cors(corsOptions));
+//app.use(cors(corsOptions));
+app.use(cors({origin: '*' }));
 app.use(express.json());
 app.use(morgan('dev'));
 

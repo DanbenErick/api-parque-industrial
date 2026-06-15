@@ -3,7 +3,7 @@ import * as usuarioController from '../controllers/usuarioController';
 import { authenticateToken, authorizeRole } from '../middlewares/auth';
 import { createUsuarioValidator, updateUsuarioValidator } from '../middlewares/validators';
 
-const router = Router();
+const router: Router = Router();
 
 // All user routes require authentication
 router.use(authenticateToken);

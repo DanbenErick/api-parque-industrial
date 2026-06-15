@@ -7,7 +7,16 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
-export const getUsuarios = async (req: Request, res: Response): Promise<any> => {
+interface IGetUsuariosQuery {
+  search?: string;
+  rol_id?: string;
+  estado?: string;
+  rubro?: string;
+  page?: string;
+  limit?: string;
+}
+
+export const getUsuarios = async (req: Request<{}, any, any, IGetUsuariosQuery>, res: Response): Promise<any> => {
   try {
     const search = (req.query.search as string) || '';
     const rol_id = req.query.rol_id ? parseInt(req.query.rol_id as string) : null;
@@ -32,7 +41,11 @@ export const getUsuarios = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
-export const getUsuariosStats = async (req: Request, res: Response): Promise<any> => {
+interface IGetUsuariosStatsQuery {
+  rol_id?: string;
+}
+
+export const getUsuariosStats = async (req: Request<{}, any, any, IGetUsuariosStatsQuery>, res: Response): Promise<any> => {
   try {
     const rol_id = req.query.rol_id ? parseInt(req.query.rol_id as string) : null;
     const stats = await usuarioRepo.getStats(rol_id);
@@ -43,7 +56,20 @@ export const getUsuariosStats = async (req: Request, res: Response): Promise<any
   }
 };
 
-export const createUsuario = async (req: Request, res: Response): Promise<any> => {
+interface ICreateUsuarioBody {
+  rol_id: number;
+  documento_identidad: string;
+  nombre_razonsocial: string;
+  clave_acceso: string;
+  cargo_representante: string;
+  telefono: string;
+  correo: string;
+  direccion: string;
+  actividad_rubro?: string;
+  medidores?: any[];
+}
+
+export const createUsuario = async (req: Request<{}, any, ICreateUsuarioBody>, res: Response): Promise<any> => {
   const { 
     rol_id, documento_identidad, nombre_razonsocial, clave_acceso, 
     cargo_representante, telefono, correo, direccion, actividad_rubro,
@@ -102,7 +128,20 @@ export const createUsuario = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const updateUsuario = async (req: Request, res: Response): Promise<any> => {
+interface IUpdateUsuarioBody {
+  rol_id?: number;
+  documento_identidad?: string;
+  nombre_razonsocial?: string;
+  cargo_representante?: string;
+  telefono?: string;
+  correo?: string;
+  direccion?: string;
+  es_activo?: boolean;
+  actividad_rubro?: string;
+  medidores?: any[];
+}
+
+export const updateUsuario = async (req: Request<{ id: string }, any, IUpdateUsuarioBody>, res: Response): Promise<any> => {
   const id = Number(req.params.id);
   
   try {
@@ -182,7 +221,7 @@ export const updateUsuario = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const deleteUsuario = async (req: Request, res: Response): Promise<any> => {
+export const deleteUsuario = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
   const id = Number(req.params.id);
 
   try {
@@ -199,7 +238,7 @@ export const deleteUsuario = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const exportExcel = async (req: Request, res: Response): Promise<any> => {
+export const exportExcel = async (req: Request<{}, any, any, IGetUsuariosQuery>, res: Response): Promise<any> => {
   try {
     const search = (req.query.search as string) || '';
     const rol_id = req.query.rol_id ? parseInt(req.query.rol_id as string) : null;
@@ -290,7 +329,7 @@ export const exportExcel = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
-export const exportPdf = async (req: Request, res: Response): Promise<any> => {
+export const exportPdf = async (req: Request<{}, any, any, IGetUsuariosQuery>, res: Response): Promise<any> => {
   try {
     const search = (req.query.search as string) || '';
     const rol_id = req.query.rol_id ? parseInt(req.query.rol_id as string) : null;

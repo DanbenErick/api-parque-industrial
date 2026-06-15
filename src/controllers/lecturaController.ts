@@ -12,7 +12,7 @@ export const getLecturas = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
-export const getLecturasByUsuario = async (req: Request, res: Response): Promise<any> => {
+export const getLecturasByUsuario = async (req: Request<{ usuarioId: string }>, res: Response): Promise<any> => {
   const { usuarioId } = req.params;
 
   if (req.user?.nombre_rol === 'Socio' && req.user.id !== parseInt(usuarioId as string)) {
@@ -28,17 +28,51 @@ export const getLecturasByUsuario = async (req: Request, res: Response): Promise
   }
 };
 
-export const createLectura = async (req: Request, res: Response): Promise<any> => {
+interface ICreateLecturaBody {
+  medidor_id: number;
+  periodo_id: number;
+  lectura_anterior: number;
+  lectura_actual: number;
+  lectura_anterior_punta?: number;
+  lectura_actual_punta?: number;
+  factor_potencia?: number;
+  precio_factor_potencia?: number;
+  estado?: string;
+  es_cambio_medidor?: boolean;
+  lectura_final_viejo?: number;
+  lectura_inicial_nuevo?: number;
+  lectura_final_viejo_punta?: number;
+  lectura_inicial_nuevo_punta?: number;
+}
+
+export const createLectura = async (req: Request<{}, any, ICreateLecturaBody>, res: Response): Promise<any> => {
   const { 
     medidor_id, periodo_id, 
     lectura_anterior, lectura_actual, 
     lectura_anterior_punta, lectura_actual_punta, factor_potencia, precio_factor_potencia,
-    estado 
+    estado,
+    es_cambio_medidor, 
+    lectura_final_viejo, lectura_inicial_nuevo,
+    lectura_final_viejo_punta, lectura_inicial_nuevo_punta
   } = req.body;
   const operario_id = req.user?.id;
 
-  if (parseFloat(lectura_actual) < parseFloat(lectura_anterior)) {
+  if (!es_cambio_medidor && Number(lectura_actual) < Number(lectura_anterior)) {
     return res.status(400).json({ error: 'La lectura actual no puede ser menor a la lectura anterior.' });
+  }
+
+  let consumo_calculado = 0;
+  if (es_cambio_medidor) {
+    let consumo_viejo = Number(lectura_final_viejo) - Number(lectura_anterior);
+    if (consumo_viejo < 0) consumo_viejo = 0;
+    
+    let consumo_nuevo = Number(lectura_actual) - Number(lectura_inicial_nuevo);
+    if (consumo_nuevo < 0) consumo_nuevo = 0;
+    
+    consumo_calculado = consumo_viejo + consumo_nuevo;
+  } else {
+    consumo_calculado = Number(lectura_actual) - Number(lectura_anterior);
+    if (consumo_calculado < 0) consumo_calculado = 0;
   }
 
   try {
@@ -51,7 +85,10 @@ export const createLectura = async (req: Request, res: Response): Promise<any> =
       medidor_id, operario_id, periodo_id, 
       lectura_anterior, lectura_actual, 
       lectura_anterior_punta, lectura_actual_punta, factor_potencia, precio_factor_potencia,
-      estado
+      estado,
+      consumo_calculado, es_cambio_medidor, 
+      lectura_final_viejo, lectura_inicial_nuevo,
+      lectura_final_viejo_punta, lectura_inicial_nuevo_punta
     });
     res.status(201).json({ message: 'Lectura registrada exitosamente', id: insertId });
   } catch (error) {
@@ -60,16 +97,52 @@ export const createLectura = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const updateLectura = async (req: Request, res: Response): Promise<any> => {
-  const { id } = req.params;
-  const { lectura_anterior, lectura_actual, lectura_anterior_punta, lectura_actual_punta } = req.body;
+interface IUpdateLecturaBody {
+  lectura_anterior: number;
+  lectura_actual: number;
+  lectura_anterior_punta?: number;
+  lectura_actual_punta?: number;
+  es_cambio_medidor?: boolean;
+  lectura_final_viejo?: number;
+  lectura_inicial_nuevo?: number;
+  lectura_final_viejo_punta?: number;
+  lectura_inicial_nuevo_punta?: number;
+  consumo_calculado?: number;
+}
 
-  if (parseFloat(lectura_actual) < parseFloat(lectura_anterior)) {
+export const updateLectura = async (req: Request<{ id: string }, any, IUpdateLecturaBody>, res: Response): Promise<any> => {
+  const { id } = req.params;
+  const { 
+    lectura_anterior, lectura_actual, 
+    lectura_anterior_punta, lectura_actual_punta, 
+    es_cambio_medidor, 
+    lectura_final_viejo, lectura_inicial_nuevo,
+    lectura_final_viejo_punta, lectura_inicial_nuevo_punta
+  } = req.body;
+
+  if (!es_cambio_medidor && Number(lectura_actual) < Number(lectura_anterior)) {
     return res.status(400).json({ error: 'La lectura actual no puede ser menor a la lectura anterior.' });
   }
-  if (lectura_actual_punta !== undefined && lectura_anterior_punta !== undefined && parseFloat(lectura_actual_punta) < parseFloat(lectura_anterior_punta)) {
+  if (!es_cambio_medidor && lectura_actual_punta !== undefined && lectura_anterior_punta !== undefined && Number(lectura_actual_punta) < Number(lectura_anterior_punta)) {
     return res.status(400).json({ error: 'La lectura actual punta no puede ser menor a la lectura anterior punta.' });
   }
+
+  let consumo_calculado = 0;
+  if (es_cambio_medidor) {
+    let consumo_viejo = Number(lectura_final_viejo) - Number(lectura_anterior);
+    if (consumo_viejo < 0) consumo_viejo = 0;
+    
+    let consumo_nuevo = Number(lectura_actual) - Number(lectura_inicial_nuevo);
+    if (consumo_nuevo < 0) consumo_nuevo = 0;
+    
+    consumo_calculado = consumo_viejo + consumo_nuevo;
+  } else {
+    consumo_calculado = Number(lectura_actual) - Number(lectura_anterior);
+    if (consumo_calculado < 0) consumo_calculado = 0;
+  }
+
+  // Actualizamos req.body con los nuevos calculos para que se pasen al repository
+  req.body.consumo_calculado = consumo_calculado;
 
   try {
     const affectedRows = await lecturaRepo.update(id as any, req.body);
@@ -85,7 +158,7 @@ export const updateLectura = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const deleteLectura = async (req: Request, res: Response): Promise<any> => {
+export const deleteLectura = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {
@@ -102,7 +175,11 @@ export const deleteLectura = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const getUltimasLecturas = async (req: Request, res: Response): Promise<any> => {
+interface IUltimasLecturasQuery {
+  year?: string;
+}
+
+export const getUltimasLecturas = async (req: Request<{}, any, any, IUltimasLecturasQuery>, res: Response): Promise<any> => {
   try {
     const year = req.query.year;
     let query = `
@@ -137,7 +214,11 @@ export const getUltimasLecturas = async (req: Request, res: Response): Promise<a
   }
 };
 
-export const getSociosAutocomplete = async (req: Request, res: Response): Promise<any> => {
+interface IAutocompleteQuery {
+  q?: string;
+}
+
+export const getSociosAutocomplete = async (req: Request<{}, any, any, IAutocompleteQuery>, res: Response): Promise<any> => {
   const { q } = req.query;
   try {
     const queryStr = q ? `%${q}%` : '%';

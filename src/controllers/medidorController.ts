@@ -11,7 +11,7 @@ export const getMedidores = async (req: Request, res: Response): Promise<any> =>
   }
 };
 
-export const getMedidoresByUsuario = async (req: Request, res: Response): Promise<any> => {
+export const getMedidoresByUsuario = async (req: Request<{ usuarioId: string }>, res: Response): Promise<any> => {
   const { usuarioId } = req.params;
   
   if (req.user?.nombre_rol === 'Socio' && req.user.id !== parseInt(usuarioId as string)) {
@@ -27,7 +27,14 @@ export const getMedidoresByUsuario = async (req: Request, res: Response): Promis
   }
 };
 
-export const createMedidor = async (req: Request, res: Response): Promise<any> => {
+interface ICreateMedidorBody {
+  usuario_id: number;
+  num_serie: string;
+  tipo: string;
+  operativo?: boolean;
+}
+
+export const createMedidor = async (req: Request<{}, any, ICreateMedidorBody>, res: Response): Promise<any> => {
   try {
     const insertId = await medidorRepo.create(req.body);
     res.status(201).json({ message: 'Medidor creado exitosamente', id: insertId });
@@ -40,7 +47,14 @@ export const createMedidor = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const updateMedidor = async (req: Request, res: Response): Promise<any> => {
+interface IUpdateMedidorBody {
+  usuario_id?: number;
+  num_serie?: string;
+  tipo?: string;
+  operativo?: boolean;
+}
+
+export const updateMedidor = async (req: Request<{ id: string }, any, IUpdateMedidorBody>, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {
@@ -57,7 +71,7 @@ export const updateMedidor = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const deleteMedidor = async (req: Request, res: Response): Promise<any> => {
+export const deleteMedidor = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {

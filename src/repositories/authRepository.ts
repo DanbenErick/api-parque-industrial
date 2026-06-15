@@ -19,6 +19,27 @@ export const updateUltimoAcceso = async (id: number): Promise<void> => {
   );
 };
 
+export const registrarSesion = async (usuario_id: number, ip_address: string | null, user_agent: string | null): Promise<void> => {
+  await db.query(
+    'INSERT INTO auditoria_sesiones (usuario_id, ip_address, user_agent) VALUES (?, ?, ?)',
+    [usuario_id, ip_address, user_agent]
+  );
+};
+
+export const getHistorialSesiones = async (page: number = 1, limit: number = 50): Promise<any[]> => {
+  const offset = (page - 1) * limit;
+  const [rows]: any = await db.query(
+    `SELECT a.id, a.usuario_id, u.nombre_razonsocial, r.nombre_rol, a.ip_address, a.user_agent, a.fecha_ingreso
+     FROM auditoria_sesiones a
+     INNER JOIN usuario u ON a.usuario_id = u.id
+     INNER JOIN rol r ON u.rol_id = r.id
+     ORDER BY a.fecha_ingreso DESC
+     LIMIT ? OFFSET ?`,
+    [limit, offset]
+  );
+  return rows;
+};
+
 export const getProfileById = async (id: number): Promise<Partial<IUsuario> | null> => {
   const [rows]: any = await db.query(
     `SELECT u.id, u.documento_identidad, u.nombre_razonsocial, u.cargo_representante, 

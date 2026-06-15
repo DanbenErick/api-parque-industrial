@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as medidorController from '../controllers/medidorController';
 import { authenticateToken, authorizeRole } from '../middlewares/auth';
 
-const router = Router();
+const router: Router = Router();
 
 router.use(authenticateToken);
 

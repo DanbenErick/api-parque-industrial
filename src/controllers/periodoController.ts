@@ -11,7 +11,14 @@ export const getPeriodos = async (req: Request, res: Response): Promise<any> => 
   }
 };
 
-export const createPeriodo = async (req: Request, res: Response): Promise<any> => {
+interface ICreatePeriodoBody {
+  mes_anio: string;
+  fecha_inicio: string | Date;
+  fecha_fin: string | Date;
+  estado?: string;
+}
+
+export const createPeriodo = async (req: Request<{}, any, ICreatePeriodoBody>, res: Response): Promise<any> => {
   try {
     const { mes_anio } = req.body;
     
@@ -32,7 +39,14 @@ export const createPeriodo = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const updatePeriodo = async (req: Request, res: Response): Promise<any> => {
+interface IUpdatePeriodoBody {
+  mes_anio?: string;
+  fecha_inicio?: string | Date;
+  fecha_fin?: string | Date;
+  estado?: string;
+}
+
+export const updatePeriodo = async (req: Request<{ id: string }, any, IUpdatePeriodoBody>, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {
@@ -49,7 +63,7 @@ export const updatePeriodo = async (req: Request, res: Response): Promise<any> =
   }
 };
 
-export const deletePeriodo = async (req: Request, res: Response): Promise<any> => {
+export const deletePeriodo = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
   const { id } = req.params;
 
   try {

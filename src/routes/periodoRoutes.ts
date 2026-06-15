@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as periodoController from '../controllers/periodoController';
 import { authenticateToken, authorizeRole } from '../middlewares/auth';
 
-const router = Router();
+const router: Router = Router();
 
 router.use(authenticateToken);
 

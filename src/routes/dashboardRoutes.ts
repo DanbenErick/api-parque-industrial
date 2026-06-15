@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as dashboardController from '../controllers/dashboardController';
 import { authenticateToken } from '../middlewares/auth';
 
-const router = Router();
+const router: Router = Router();
 
 router.use(authenticateToken);
 

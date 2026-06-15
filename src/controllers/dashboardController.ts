@@ -21,7 +21,7 @@ const getChartDataHelper = async (year: any) => {
   const [rows]: any = await db.query(query, params);
 
   // 2. Mapeamos periodos a un formato estándar
-  const mesesMap = {
+  const mesesMap: any = {
     '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr', '05': 'May', '06': 'Jun',
     '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic'
   };
@@ -47,15 +47,19 @@ const getChartDataHelper = async (year: any) => {
   return realData;
 };
 
-export const getKpis = async (req: Request, res: Response): Promise<any> => {
+interface IDashboardQuery {
+  year?: string;
+}
+
+export const getKpis = async (req: Request<{}, any, any, IDashboardQuery>, res: Response): Promise<any> => {
   try {
-    const year = req.query.year || new Date().getFullYear();
+    const year = req.query.year || new Date().getFullYear().toString();
 
     // 2. Obtener datos del gráfico para calcular max y min
     const chartData = await getChartDataHelper(year);
     
     // 1. Total Consumo se calcula del chart data
-    const totalConsumo = chartData.reduce((sum, d) => sum + d.consumo, 0);
+    const totalConsumo = chartData.reduce((sum: number, d: any) => sum + d.consumo, 0);
     
     let maxConsumo = 0;
     let maxPeriodo = 'N/A';
@@ -63,7 +67,7 @@ export const getKpis = async (req: Request, res: Response): Promise<any> => {
     let minPeriodo = 'N/A';
 
     if (chartData && chartData.length > 0) {
-      const sorted = [...chartData].sort((a, b) => b.consumo - a.consumo);
+      const sorted = [...chartData].sort((a: any, b: any) => b.consumo - a.consumo);
       maxConsumo = sorted[0].consumo;
       maxPeriodo = sorted[0].periodo;
       minConsumo = sorted[sorted.length - 1].consumo;
@@ -83,9 +87,9 @@ export const getKpis = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const getChart = async (req: Request, res: Response): Promise<any> => {
+export const getChart = async (req: Request<{}, any, any, IDashboardQuery>, res: Response): Promise<any> => {
   try {
-    const year = req.query.year || new Date().getFullYear();
+    const year = req.query.year || new Date().getFullYear().toString();
     const result = await getChartDataHelper(year);
     res.json(result);
   } catch (error) {
