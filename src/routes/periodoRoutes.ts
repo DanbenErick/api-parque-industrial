@@ -1,17 +1,30 @@
 import { Router } from 'express';
-import * as periodoController from '../controllers/periodoController';
-import { authenticateToken, authorizeRole } from '../middlewares/auth';
+import { PeriodoController } from '../controllers/periodoController';
+import { AuthMiddleware } from '../middlewares/auth';
+import { RolUsuario } from '../types/enums';
 
-const router: Router = Router();
 
-router.use(authenticateToken);
+export class PeriodoRoutes {
+    public router: Router;
 
-// Admin only routes
-router.post('/', authorizeRole(['Admin']), periodoController.createPeriodo);
-router.put('/:id', authorizeRole(['Admin']), periodoController.updatePeriodo);
-router.delete('/:id', authorizeRole(['Admin']), periodoController.deletePeriodo);
+    constructor(private periodoController: PeriodoController, private authMiddleware: AuthMiddleware) {
+        this.router = Router();
+        this.initializeRoutes();
+    }
 
-// Admin and Operario can read periods
-router.get('/', authorizeRole(['Admin', 'Operario']), periodoController.getPeriodos);
+    private initializeRoutes() {
+        this.router.use(this.authMiddleware.authenticateToken);
+        
+        // Admin only routes
+        this.router.post('/', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.periodoController.createPeriodo);
+        this.router.put('/:id', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.periodoController.updatePeriodo);
+        this.router.delete('/:id', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.periodoController.deletePeriodo);
+        
+        // Admin and Operario can read periods
+        this.router.get('/', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.periodoController.getPeriodos);
+    }
 
-export default router;
+    public getRouter(): Router {
+        return this.router;
+    }
+}

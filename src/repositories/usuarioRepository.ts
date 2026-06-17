@@ -1,8 +1,12 @@
-import db from '../config/db';
+import { Database } from '../config/db';
 import { IPaginatedResult, IUsuario } from '../types';
+import { EstadoRecibo } from '../types/enums';
 
-export const findAll = async (search: string = '', rol_id: number | null = null, estado: any = null, rubro: string | null = null, limit: number = 30, offset: number = 0): Promise<IPaginatedResult<IUsuario>> => {
-  let baseQuery = `
+
+export class UsuarioRepository {
+    constructor(private db: Database) {}
+    public findAll = async (search: string = '', rol_id: number | null = null, estado: any = null, rubro: string | null = null, limit: number = 30, offset: number = 0): Promise<IPaginatedResult<IUsuario>> => {
+          let baseQuery = `
     FROM usuario u
     INNER JOIN rol r ON u.rol_id = r.id
     LEFT JOIN (
@@ -10,42 +14,42 @@ export const findAll = async (search: string = '', rol_id: number | null = null,
         SUM(total) as deuda_total, 
         COUNT(*) as recibos_pendientes
       FROM recibo 
-      WHERE estado = 'Pendiente' AND deleted_at IS NULL
+      WHERE estado = '${EstadoRecibo.PENDIENTE}' AND deleted_at IS NULL
       GROUP BY usuario_id
     ) rp ON rp.usuario_id = u.id
     WHERE u.deleted_at IS NULL
   `;
-  const params = [];
+          const params = [];
 
-  if (rol_id) {
-    baseQuery += ` AND u.rol_id = ?`;
-    params.push(rol_id);
-  }
+          if (rol_id) {
+            baseQuery += ` AND u.rol_id = ?`;
+            params.push(rol_id);
+          }
 
-  if (estado !== null && estado !== undefined && estado !== '') {
-    if (estado === 'activos' || estado === '1' || estado === 1) {
-      baseQuery += ` AND u.es_activo = 1`;
-    } else if (estado === 'suspendidos' || estado === 'inactivos' || estado === '0' || estado === 0) {
-      baseQuery += ` AND u.es_activo = 0`;
-    }
-  }
+          if (estado !== null && estado !== undefined && estado !== '') {
+            if (estado === 'activos' || estado === '1' || estado === 1) {
+              baseQuery += ` AND u.es_activo = 1`;
+            } else if (estado === 'suspendidos' || estado === 'inactivos' || estado === '0' || estado === 0) {
+              baseQuery += ` AND u.es_activo = 0`;
+            }
+          }
 
-  if (rubro && rubro !== 'Todos' && rubro !== '') {
-    baseQuery += ` AND u.actividad_rubro = ?`;
-    params.push(rubro);
-  }
+          if (rubro && rubro !== 'Todos' && rubro !== '') {
+            baseQuery += ` AND u.actividad_rubro = ?`;
+            params.push(rubro);
+          }
 
-  if (search && search.trim() !== '') {
-    baseQuery += ` AND (u.nombre_razonsocial LIKE ? OR u.documento_identidad LIKE ?)`;
-    const searchTerm = `%${search.trim()}%`;
-    params.push(searchTerm, searchTerm);
-  }
+          if (search && search.trim() !== '') {
+            baseQuery += ` AND (u.nombre_razonsocial LIKE ? OR u.documento_identidad LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            params.push(searchTerm, searchTerm);
+          }
 
-  const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
-  const [countRows]: any = await db.query(countQuery, params);
-  const total = countRows[0].total;
+          const countQuery = `SELECT COUNT(*) as total ${baseQuery}`;
+          const [countRows]: any = await this.db.query(countQuery, params);
+          const total = countRows[0].total;
 
-  let query = `
+          let query = `
     SELECT u.id, u.documento_identidad, u.nombre_razonsocial, u.cargo_representante, 
            u.telefono, u.correo, u.direccion, u.es_activo, u.ultimo_acceso, u.actividad_rubro, u.saldo_a_favor,
            r.nombre_rol, r.id as rol_id,
@@ -60,22 +64,21 @@ export const findAll = async (search: string = '', rol_id: number | null = null,
     ORDER BY u.created_at DESC 
     LIMIT ? OFFSET ?
   `;
-  
-  params.push(Number(limit), Number(offset));
+          
+          params.push(Number(limit), Number(offset));
 
-  const [rows]: any = await db.query(query, params);
-  return {
-    data: rows,
-    meta: {
-      total,
-      limit: Number(limit),
-      offset: Number(offset)
-    }
-  };
-};
-
-export const getStats = async (rol_id: number | null = null): Promise<any> => {
-  let query = `
+          const [rows]: any = await this.db.query(query, params);
+          return {
+            data: rows,
+            meta: {
+              total,
+              limit: Number(limit),
+              offset: Number(offset)
+            }
+          };
+        };
+    public getStats = async (rol_id: number | null = null): Promise<any> => {
+          let query = `
     SELECT 
       COUNT(*) as total, 
       SUM(CASE WHEN es_activo = 1 THEN 1 ELSE 0 END) as activos, 
@@ -83,58 +86,54 @@ export const getStats = async (rol_id: number | null = null): Promise<any> => {
     FROM usuario 
     WHERE deleted_at IS NULL
   `;
-  const params = [];
-  
-  if (rol_id) {
-    query += ` AND rol_id = ?`;
-    params.push(rol_id);
-  }
-  
-  const [rows]: any = await db.query(query, params);
-  
-  // En caso de que no haya registros, los SUM devuelven NULL, los convertimos a 0
-  return {
-    total: rows[0].total || 0,
-    activos: rows[0].activos || 0,
-    inactivos: rows[0].inactivos || 0
-  };
-};
-
-export const create = async (usuarioData: any): Promise<number> => {
-  const { rol_id, documento_identidad, nombre_razonsocial, clave_acceso, cargo_representante, telefono, correo, direccion, actividad_rubro, es_activo } = usuarioData;
-  const [result]: any = await db.query(
-    `INSERT INTO usuario (
+          const params = [];
+          
+          if (rol_id) {
+            query += ` AND rol_id = ?`;
+            params.push(rol_id);
+          }
+          
+          const [rows]: any = await this.db.query(query, params);
+          
+          // En caso de que no haya registros, los SUM devuelven NULL, los convertimos a 0
+          return {
+            total: rows[0].total || 0,
+            activos: rows[0].activos || 0,
+            inactivos: rows[0].inactivos || 0
+          };
+        };
+    public create = async (usuarioData: any): Promise<number> => {
+          const { rol_id, documento_identidad, nombre_razonsocial, clave_acceso, cargo_representante, telefono, correo, direccion, actividad_rubro, es_activo } = usuarioData;
+          const [result]: any = await this.db.query(
+            `INSERT INTO usuario (
       rol_id, documento_identidad, nombre_razonsocial, clave_acceso, 
       cargo_representante, telefono, correo, direccion, actividad_rubro
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [rol_id, documento_identidad, nombre_razonsocial, clave_acceso, cargo_representante, telefono, correo, direccion || null, actividad_rubro || null]
-  );
-  return result.insertId;
-};
-
-export const update = async (id: number, usuarioData: any): Promise<number> => {
-  const { rol_id, documento_identidad, nombre_razonsocial, cargo_representante, telefono, correo, direccion, actividad_rubro, es_activo } = usuarioData;
-  const [result]: any = await db.query(
-    `UPDATE usuario 
+            [rol_id, documento_identidad, nombre_razonsocial, clave_acceso, cargo_representante, telefono, correo, direccion || null, actividad_rubro || null]
+          );
+          return result.insertId;
+        };
+    public update = async (id: number, usuarioData: any): Promise<number> => {
+          const { rol_id, documento_identidad, nombre_razonsocial, cargo_representante, telefono, correo, direccion, actividad_rubro, es_activo } = usuarioData;
+          const [result]: any = await this.db.query(
+            `UPDATE usuario 
      SET rol_id = ?, documento_identidad = ?, nombre_razonsocial = ?, 
          cargo_representante = ?, telefono = ?, correo = ?, 
          direccion = ?, es_activo = ?, actividad_rubro = ?
      WHERE id = ? AND deleted_at IS NULL`,
-    [rol_id, documento_identidad, nombre_razonsocial, cargo_representante, telefono, correo, direccion || null, es_activo, actividad_rubro || null, id]
-  );
-  return result.affectedRows;
-};
-
-export const softDelete = async (id: number): Promise<number> => {
-  const [result]: any = await db.query(
-    'UPDATE usuario SET deleted_at = CURRENT_TIMESTAMP, es_activo = FALSE WHERE id = ?',
-    [id]
-  );
-  return result.affectedRows;
-};
-
-export const findById = async (id: number): Promise<IUsuario | null> => {
-  const [rows]: any = await db.query(`
+            [rol_id, documento_identidad, nombre_razonsocial, cargo_representante, telefono, correo, direccion || null, es_activo, actividad_rubro || null, id]
+          );
+          return result.affectedRows;
+        };
+    public softDelete = async (id: number): Promise<number> => {
+          const [result]: any = await this.db.query(
+            'UPDATE usuario SET deleted_at = CURRENT_TIMESTAMP, es_activo = FALSE WHERE id = ?',
+            [id]
+          );
+          return result.affectedRows;
+        };
+    public findById = async (id: number): Promise<IUsuario | null> => {
+          const [rows]: any = await this.db.query(`
     SELECT u.id, u.documento_identidad, u.nombre_razonsocial, u.cargo_representante, 
            u.telefono, u.correo, u.direccion, u.es_activo, u.ultimo_acceso,
            r.nombre_rol, r.id as rol_id,
@@ -147,7 +146,8 @@ export const findById = async (id: number): Promise<IUsuario | null> => {
     INNER JOIN rol r ON u.rol_id = r.id
     WHERE u.id = ? AND u.deleted_at IS NULL
   `, [id]);
-  return rows[0];
-};
+          return rows[0];
+        };
+}
 
 

@@ -6,8 +6,11 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 dotenv.config();
 
-import logger from './utils/logger';
-import errorHandler from './middlewares/errorHandler';
+// Utils & Config
+import { Logger } from './utils/logger';
+import { Database } from './config/db';
+
+const logger = new Logger();
 
 // Validación temprana de variables de entorno
 const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_NAME', 'JWT_SECRET'];
@@ -18,71 +21,130 @@ requiredEnvVars.forEach((envVar) => {
   }
 });
 
+const db = new Database(logger);
+
+// Repositories
+import { AuditoriaRepository } from './repositories/auditoriaRepository';
+import { AuthRepository } from './repositories/authRepository';
+import { CatalogoCargoRepository } from './repositories/catalogoCargoRepository';
+import { ConfigRepository } from './repositories/configRepository';
+import { LecturaRepository } from './repositories/lecturaRepository';
+import { MedidorRepository } from './repositories/medidorRepository';
+import { PagoRepository } from './repositories/pagoRepository';
+import { PeriodoRepository } from './repositories/periodoRepository';
+import { ReciboRepository } from './repositories/reciboRepository';
+import { UsuarioRepository } from './repositories/usuarioRepository';
+
+const auditoriaRepo = new AuditoriaRepository(db);
+const authRepo = new AuthRepository(db);
+const catalogoCargoRepo = new CatalogoCargoRepository(db);
+const configRepo = new ConfigRepository(db);
+const lecturaRepo = new LecturaRepository(db);
+const medidorRepo = new MedidorRepository(db);
+const pagoRepo = new PagoRepository(db);
+const periodoRepo = new PeriodoRepository(db);
+const reciboRepo = new ReciboRepository(db);
+const usuarioRepo = new UsuarioRepository(db);
+
+// Services
+import { PdfService } from './services/pdfService';
+import { ExcelService } from './services/excelService';
+import { ReciboService } from './services/reciboService';
+
+const pdfService = new PdfService(reciboRepo, auditoriaRepo, pagoRepo, usuarioRepo);
+const excelService = new ExcelService(reciboRepo, auditoriaRepo, pagoRepo, usuarioRepo);
+const reciboService = new ReciboService(db);
+
+// Middlewares
+import { AuthMiddleware } from './middlewares/auth';
+import { ErrorHandlerMiddleware } from './middlewares/errorHandler';
+import { ValidatorsMiddleware } from './middlewares/validators';
+
+const authMiddleware = new AuthMiddleware();
+const errorHandlerMiddleware = new ErrorHandlerMiddleware(logger);
+const validatorsMiddleware = new ValidatorsMiddleware();
+
+// Controllers
+import { AuthController } from './controllers/authController';
+import { CatalogoCargoController } from './controllers/catalogoCargoController';
+import { ConfigController } from './controllers/configController';
+import { DashboardController } from './controllers/dashboardController';
+import { LecturaController } from './controllers/lecturaController';
+import { MedidorController } from './controllers/medidorController';
+import { PagoController } from './controllers/pagoController';
+import { PeriodoController } from './controllers/periodoController';
+import { ReciboController } from './controllers/reciboController';
+import { UsuarioController } from './controllers/usuarioController';
+
+const authController = new AuthController(authRepo);
+const catalogoCargoController = new CatalogoCargoController(catalogoCargoRepo);
+const configController = new ConfigController(configRepo);
+const dashboardController = new DashboardController(db);
+const lecturaController = new LecturaController(lecturaRepo, db);
+const medidorController = new MedidorController(medidorRepo);
+const pagoController = new PagoController(pdfService, excelService, pagoRepo);
+const periodoController = new PeriodoController(periodoRepo);
+const reciboController = new ReciboController(pdfService, excelService, auditoriaRepo, reciboRepo, reciboService, pagoRepo);
+const usuarioController = new UsuarioController(pdfService, excelService, usuarioRepo, medidorRepo);
+
+// Routes
+import { AuthRoutes } from './routes/authRoutes';
+import { CatalogoCargoRoutes } from './routes/catalogoCargoRoutes';
+import { ConfigRoutes } from './routes/configRoutes';
+import { DashboardRoutes } from './routes/dashboardRoutes';
+import { LecturaRoutes } from './routes/lecturaRoutes';
+import { MedidorRoutes } from './routes/medidorRoutes';
+import { PagoRoutes } from './routes/pagoRoutes';
+import { PeriodoRoutes } from './routes/periodoRoutes';
+import { ReciboRoutes } from './routes/reciboRoutes';
+import { UsuarioRoutes } from './routes/usuarioRoutes';
+
+const authRoutes = new AuthRoutes(authController, authMiddleware, validatorsMiddleware).getRouter();
+const catalogoCargoRoutes = new CatalogoCargoRoutes(catalogoCargoController, authMiddleware).getRouter();
+const configRoutes = new ConfigRoutes(configController, authMiddleware).getRouter();
+const dashboardRoutes = new DashboardRoutes(dashboardController, authMiddleware).getRouter();
+const lecturaRoutes = new LecturaRoutes(lecturaController, authMiddleware).getRouter();
+const medidorRoutes = new MedidorRoutes(medidorController, authMiddleware).getRouter();
+const pagoRoutes = new PagoRoutes(pagoController, authMiddleware).getRouter();
+const periodoRoutes = new PeriodoRoutes(periodoController, authMiddleware).getRouter();
+const reciboRoutes = new ReciboRoutes(reciboController, authMiddleware).getRouter();
+const usuarioRoutes = new UsuarioRoutes(usuarioController, authMiddleware, validatorsMiddleware).getRouter();
+
+// Cron
+import { RecibosCron } from './cron/recibosCron';
+const recibosCron = new RecibosCron(db, logger);
+recibosCron.init();
+
+// Express setup
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares
-const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000'].filter(Boolean) as string[];
-
-const corsOptions = {
-  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Permitir si no hay origen (ej. curl o postman) o si está en la lista o si es de localhost
-    if (!origin || allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Bloqueado por CORS'));
-    }
-  },
-  optionsSuccessStatus: 200
-};
-
-// ── Seguridad HTTP (Helmet) ──────────────────────────────────────────────────
-app.use(helmet());
-
-// ── Rate Limiting ────────────────────────────────────────────────────────────
-// Global: máximo 300 req/min por IP para proteger todos los endpoints
 const globalLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,  // 1 minuto
+  windowMs: 1 * 60 * 1000,
   max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiadas peticiones. Intente nuevamente en un minuto.' }
 });
-app.use(globalLimiter);
 
-// Login: más estricto — máximo 20 intentos cada 15 minutos por IP
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
+  windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos de inicio de sesión. Intente nuevamente en 15 minutos.' },
-  skipSuccessfulRequests: true // Solo cuenta intentos fallidos
+  skipSuccessfulRequests: true
 });
-//app.use(cors(corsOptions));
+
+app.use(helmet());
+app.use(globalLimiter);
 app.use(cors({origin: '*' }));
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Basic route
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).json({
-    ok: true,
-    msg: 'Funcionando'
-  });
+  res.status(200).json({ ok: true, msg: 'Funcionando con Arquitectura POO y DI' });
 });
-
-// Import and use routes
-import authRoutes from './routes/authRoutes';
-import usuarioRoutes from './routes/usuarioRoutes';
-import periodoRoutes from './routes/periodoRoutes';
-import medidorRoutes from './routes/medidorRoutes';
-import lecturaRoutes from './routes/lecturaRoutes';
-import reciboRoutes from './routes/reciboRoutes';
-import pagoRoutes from './routes/pagoRoutes';
-import dashboardRoutes from './routes/dashboardRoutes';
-import configRoutes from './routes/configRoutes';
-import catalogoCargoRoutes from './routes/catalogoCargoRoutes';
 
 app.use('/api/auth', loginLimiter, authRoutes);
 app.use('/api/usuarios', usuarioRoutes);
@@ -95,12 +157,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/catalogo-cargos', catalogoCargoRoutes);
 
-// Error handling middleware (Centralizado)
-app.use(errorHandler);
-
-// Import and initialize cron jobs
-import initRecibosCron from './cron/recibosCron';
-initRecibosCron();
+// Error handler
+app.use(errorHandlerMiddleware.handle);
 
 app.listen(PORT, () => {
   logger.info(`🚀 Servidor corriendo en el puerto ${PORT}`);

@@ -1,21 +1,34 @@
 import { Router } from 'express';
-import * as usuarioController from '../controllers/usuarioController';
-import { authenticateToken, authorizeRole } from '../middlewares/auth';
-import { createUsuarioValidator, updateUsuarioValidator } from '../middlewares/validators';
+import { UsuarioController } from '../controllers/usuarioController';
+import { AuthMiddleware } from '../middlewares/auth';
+import { ValidatorsMiddleware } from '../middlewares/validators';
+import { RolUsuario } from '../types/enums';
 
-const router: Router = Router();
 
-// All user routes require authentication
-router.use(authenticateToken);
-// Permitimos a Admin y Operario gestionar usuarios (el operario necesita ver y registrar)
-router.use(authorizeRole(['Admin', 'Operario']));
+export class UsuarioRoutes {
+    public router: Router;
 
-router.get('/stats', usuarioController.getUsuariosStats);
-router.get('/', usuarioController.getUsuarios);
-router.get('/export/excel', usuarioController.exportExcel);
-router.get('/export/pdf', usuarioController.exportPdf);
-router.post('/', createUsuarioValidator, usuarioController.createUsuario);
-router.put('/:id', updateUsuarioValidator, usuarioController.updateUsuario);
-router.delete('/:id', authorizeRole(['Admin']), usuarioController.deleteUsuario);
+    constructor(private usuarioController: UsuarioController, private authMiddleware: AuthMiddleware, private validatorsMiddleware: ValidatorsMiddleware) {
+        this.router = Router();
+        this.initializeRoutes();
+    }
 
-export default router;
+    private initializeRoutes() {
+        // All user routes require authentication
+        this.router.use(this.authMiddleware.authenticateToken);
+        // Permitimos a Admin y Operario gestionar usuarios (el operario necesita ver y registrar)
+        this.router.use(this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]));
+        
+        this.router.get('/stats', this.usuarioController.getUsuariosStats);
+        this.router.get('/', this.usuarioController.getUsuarios);
+        this.router.get('/export/excel', this.usuarioController.exportExcel);
+        this.router.get('/export/pdf', this.usuarioController.exportPdf);
+        this.router.post('/', this.validatorsMiddleware.createUsuarioValidator, this.usuarioController.createUsuario);
+        this.router.put('/:id', this.validatorsMiddleware.updateUsuarioValidator, this.usuarioController.updateUsuario);
+        this.router.delete('/:id', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.usuarioController.deleteUsuario);
+    }
+
+    public getRouter(): Router {
+        return this.router;
+    }
+}

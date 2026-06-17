@@ -1,9 +1,11 @@
+import { EstadoPeriodo } from './enums';
+
 export interface IPeriodoFacturacion {
-  id: number;
+  id?: number;
   fecha_inicio: Date;
   fecha_fin: Date;
   mes_anio: string;
-  estado: 'Pendiente' | 'Facturado';
+  estado: EstadoPeriodo;
   created_at?: Date;
   updated_at?: Date;
   deleted_at?: Date | null;

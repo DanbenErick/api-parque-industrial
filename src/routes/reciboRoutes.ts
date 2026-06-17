@@ -1,52 +1,65 @@
 import { Router } from 'express';
-import * as reciboController from '../controllers/reciboController';
-import { authenticateToken, authorizeRole } from '../middlewares/auth';
-
-const router: Router = Router();
-
-router.use(authenticateToken);
-
-// Socios can only see their own receipts
-router.get('/usuario/:usuarioId', reciboController.getRecibosByUsuario);
-
-// Export all receipts as PDF V2
-router.get('/export/all-v2', authorizeRole(['Admin', 'Operario']), reciboController.exportAllRecibosPdfV2);
-
-// Export all receipts as Excel and PDF
-router.get('/reporte/pdf', authorizeRole(['Admin', 'Operario']), reciboController.exportReportePdf);
-router.get('/reporte/excel', authorizeRole(['Admin', 'Operario']), reciboController.exportReporteExcel);
-router.get('/reportes/deudas/excel', authorizeRole(['Admin', 'Operario']), reciboController.exportReporteDeudasExcel);
-
-// Export single receipt as PDF
-router.get('/:id/pdf', reciboController.exportReciboPdf);
-
-// Export single receipt as PDF V2 (Rediseñado)
-router.get('/:id/pdf-v2', reciboController.exportReciboPdfV2);
-
-// Export single receipt as PDF V3 (Premium)
-router.get('/:id/pdf-v3', reciboController.exportReciboPdfV3);
+import { ReciboController } from '../controllers/reciboController';
+import { AuthMiddleware } from '../middlewares/auth';
+import { RolUsuario } from '../types/enums';
 
 
+export class ReciboRoutes {
+    public router: Router;
 
-// Get global stats for KPIs
-router.get('/stats/global', authorizeRole(['Admin', 'Operario']), reciboController.getRecibosStats);
+    constructor(private reciboController: ReciboController, private authMiddleware: AuthMiddleware) {
+        this.router = Router();
+        this.initializeRoutes();
+    }
 
-// Get single receipt details
-router.get('/:id', reciboController.getReciboById);
+    private initializeRoutes() {
+        this.router.use(this.authMiddleware.authenticateToken);
+        
+        // Socios can only see their own receipts
+        this.router.get('/usuario/:usuarioId', this.reciboController.getRecibosByUsuario);
+        
+        // Export all receipts as PDF V2
+        this.router.get('/export/all-v2', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportAllRecibosPdfV2);
+        
+        // Export all receipts as Excel and PDF
+        this.router.get('/reporte/pdf', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportReportePdf);
+        this.router.get('/reporte/excel', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportReporteExcel);
+        this.router.get('/reportes/deudas/excel', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportReporteDeudasExcel);
+        
+        // Export single receipt as PDF
+        this.router.get('/:id/pdf', this.reciboController.exportReciboPdf);
+        
+        // Export single receipt as PDF V2 (Rediseñado)
+        this.router.get('/:id/pdf-v2', this.reciboController.exportReciboPdfV2);
+        
+        // Export single receipt as PDF V3 (Premium)
+        this.router.get('/:id/pdf-v3', this.reciboController.exportReciboPdfV3);
+        
+        
+        
+        // Get global stats for KPIs
+        this.router.get('/stats/global', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.getRecibosStats);
+        
+        // Get single receipt details
+        this.router.get('/:id', this.reciboController.getReciboById);
+        
+        // Admin and Operario can read all receipts
+        this.router.get('/', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.getRecibos);
+        
+        // Only Admin can trigger bulk generation
+        this.router.post('/generar', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.reciboController.generarRecibos);
+        
+        // Generar factura para un solo usuario
+        this.router.post('/generar/individual', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.reciboController.generarReciboIndividual);
+        
+        // Refacturar (Anular y regenerar) recibo
+        this.router.post('/:id/refacturar', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.refacturarRecibo);
+        
+        // Edit receipt fees
+        this.router.put('/:id/cargos', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.updateCargos);
+    }
 
-// Admin and Operario can read all receipts
-router.get('/', authorizeRole(['Admin', 'Operario']), reciboController.getRecibos);
-
-// Only Admin can trigger bulk generation
-router.post('/generar', authorizeRole(['Admin']), reciboController.generarRecibos);
-
-// Generar factura para un solo usuario
-router.post('/generar/individual', authorizeRole(['Admin']), reciboController.generarReciboIndividual);
-
-// Refacturar (Anular y regenerar) recibo
-router.post('/:id/refacturar', authorizeRole(['Admin', 'Operario']), reciboController.refacturarRecibo);
-
-// Edit receipt fees
-router.put('/:id/cargos', authorizeRole(['Admin', 'Operario']), reciboController.updateCargos);
-
-export default router;
+    public getRouter(): Router {
+        return this.router;
+    }
+}

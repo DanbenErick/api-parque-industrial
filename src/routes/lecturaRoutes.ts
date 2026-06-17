@@ -1,26 +1,39 @@
 import { Router } from 'express';
-import * as lecturaController from '../controllers/lecturaController';
-import { authenticateToken, authorizeRole } from '../middlewares/auth';
+import { LecturaController } from '../controllers/lecturaController';
+import { AuthMiddleware } from '../middlewares/auth';
+import { RolUsuario } from '../types/enums';
 
-const router: Router = Router();
 
-router.use(authenticateToken);
+export class LecturaRoutes {
+    public router: Router;
 
-router.get('/socios/autocomplete', lecturaController.getSociosAutocomplete);
+    constructor(private lecturaController: LecturaController, private authMiddleware: AuthMiddleware) {
+        this.router = Router();
+        this.initializeRoutes();
+    }
 
-// Socios can only see their own readings
-router.get('/usuario/:usuarioId', lecturaController.getLecturasByUsuario);
+    private initializeRoutes() {
+        this.router.use(this.authMiddleware.authenticateToken);
+        
+        this.router.get('/socios/autocomplete', this.lecturaController.getSociosAutocomplete);
+        
+        // Socios can only see their own readings
+        this.router.get('/usuario/:usuarioId', this.lecturaController.getLecturasByUsuario);
+        
+        // Admin and Operario can read all readings
+        this.router.get('/', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.lecturaController.getLecturas);
+        
+        this.router.get('/ultimas', this.lecturaController.getUltimasLecturas);
+        
+        // Admin and Operario can create readings
+        this.router.post('/', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.lecturaController.createLectura);
+        
+        // Only Admin can update or delete readings
+        this.router.put('/:id', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.lecturaController.updateLectura);
+        this.router.delete('/:id', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.lecturaController.deleteLectura);
+    }
 
-// Admin and Operario can read all readings
-router.get('/', authorizeRole(['Admin', 'Operario']), lecturaController.getLecturas);
-
-router.get('/ultimas', lecturaController.getUltimasLecturas);
-
-// Admin and Operario can create readings
-router.post('/', authorizeRole(['Admin', 'Operario']), lecturaController.createLectura);
-
-// Only Admin can update or delete readings
-router.put('/:id', authorizeRole(['Admin']), lecturaController.updateLectura);
-router.delete('/:id', authorizeRole(['Admin']), lecturaController.deleteLectura);
-
-export default router;
+    public getRouter(): Router {
+        return this.router;
+    }
+}

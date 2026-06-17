@@ -1,13 +1,24 @@
 import { Router } from 'express';
-import * as dashboardController from '../controllers/dashboardController';
-import { authenticateToken } from '../middlewares/auth';
+import { DashboardController } from '../controllers/dashboardController';
+import { AuthMiddleware } from '../middlewares/auth';
 
-const router: Router = Router();
+export class DashboardRoutes {
+    public router: Router;
 
-router.use(authenticateToken);
+    constructor(private dashboardController: DashboardController, private authMiddleware: AuthMiddleware) {
+        this.router = Router();
+        this.initializeRoutes();
+    }
 
-router.get('/kpis', dashboardController.getKpis);
-router.get('/chart', dashboardController.getChart);
-router.get('/alerts', dashboardController.getAlerts);
+    private initializeRoutes() {
+        this.router.use(this.authMiddleware.authenticateToken);
+        
+        this.router.get('/kpis', this.dashboardController.getKpis);
+        this.router.get('/chart', this.dashboardController.getChart);
+        this.router.get('/alerts', this.dashboardController.getAlerts);
+    }
 
-export default router;
+    public getRouter(): Router {
+        return this.router;
+    }
+}

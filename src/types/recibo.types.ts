@@ -1,7 +1,10 @@
+import { EstadoRecibo } from './enums';
+
 export interface IRecibo {
-  id: number;
+  id?: number;
   usuario_id: number;
   periodo_id: number;
+  lectura_id?: number;
   numero_comprobante: string;
   cargo_energia: number;
   cargo_energia_punta: number;
@@ -15,14 +18,12 @@ export interface IRecibo {
   deuda_pendiente: number;
   deuda_consumo: number;
   deuda_vencida: number;
-  descuento: number;
-  motivo_descuento: string | null;
   subtotal: number;
   igv: number;
   total: number;
   fecha_emision: Date;
   fecha_vencimiento: Date;
-  estado: 'Pendiente' | 'Pagado' | 'Vencido' | 'Anulado';
+  estado: EstadoRecibo;
   created_at?: Date;
   updated_at?: Date;
   deleted_at?: Date | null;
