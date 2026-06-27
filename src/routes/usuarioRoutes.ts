@@ -23,6 +23,7 @@ export class UsuarioRoutes {
         this.router.get('/', this.usuarioController.getUsuarios);
         this.router.get('/export/excel', this.usuarioController.exportExcel);
         this.router.get('/export/pdf', this.usuarioController.exportPdf);
+        this.router.post('/bulk', this.usuarioController.createUsuariosBulk);
         this.router.post('/', this.validatorsMiddleware.createUsuarioValidator, this.usuarioController.createUsuario);
         this.router.put('/:id', this.validatorsMiddleware.updateUsuarioValidator, this.usuarioController.updateUsuario);
         this.router.delete('/:id', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.usuarioController.deleteUsuario);

@@ -41,7 +41,8 @@ export class Database {
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
-        multipleStatements: true
+        multipleStatements: true,
+        flags: 'FOUND_ROWS'
       });
 
       const poolConn = await this.pool.getConnection();

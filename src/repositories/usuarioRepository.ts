@@ -94,12 +94,44 @@ export class UsuarioRepository {
           }
           
           const [rows]: any = await this.db.query(query, params);
+
+          // Obtener estadísticas de medidores solo para socios
+          let statsMedidores = { normal: 0, tiempoReal: 0, sinMedidor: 0 };
+          
+          if (rol_id === 3) {
+            const medidoresQuery = `
+              SELECT 
+                SUM(CASE WHEN m.tipo = 'Normal' THEN 1 ELSE 0 END) as medidores_normal,
+                SUM(CASE WHEN m.tipo = 'Hora Punta' THEN 1 ELSE 0 END) as medidores_tiempo_real
+              FROM medidor m
+              JOIN usuario u ON m.usuario_id = u.id
+              WHERE m.deleted_at IS NULL AND u.deleted_at IS NULL AND u.rol_id = 3
+            `;
+            const [medidoresRows]: any = await this.db.query(medidoresQuery);
+            
+            const sinMedidorQuery = `
+              SELECT COUNT(*) as sin_medidor
+              FROM usuario u
+              LEFT JOIN medidor m ON u.id = m.usuario_id AND m.deleted_at IS NULL
+              WHERE u.deleted_at IS NULL AND u.rol_id = 3 AND m.id IS NULL
+            `;
+            const [sinMedidorRows]: any = await this.db.query(sinMedidorQuery);
+
+            statsMedidores = {
+              normal: parseInt(medidoresRows[0].medidores_normal) || 0,
+              tiempoReal: parseInt(medidoresRows[0].medidores_tiempo_real) || 0,
+              sinMedidor: parseInt(sinMedidorRows[0].sin_medidor) || 0
+            };
+          }
           
           // En caso de que no haya registros, los SUM devuelven NULL, los convertimos a 0
           return {
             total: rows[0].total || 0,
             activos: rows[0].activos || 0,
-            inactivos: rows[0].inactivos || 0
+            inactivos: rows[0].inactivos || 0,
+            medidores_normal: statsMedidores.normal,
+            medidores_tiempo_real: statsMedidores.tiempoReal,
+            socios_sin_medidor: statsMedidores.sinMedidor
           };
         };
     public create = async (usuarioData: any): Promise<number> => {
@@ -147,6 +179,11 @@ export class UsuarioRepository {
     WHERE u.id = ? AND u.deleted_at IS NULL
   `, [id]);
           return rows[0];
+        };
+
+    public findByDocumento = async (documento: string): Promise<IUsuario | null> => {
+          const [rows]: any = await this.db.query(`SELECT id FROM usuario WHERE documento_identidad = ? AND deleted_at IS NULL LIMIT 1`, [documento]);
+          return rows[0] || null;
         };
 }
 

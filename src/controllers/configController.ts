@@ -4,6 +4,7 @@ import { ConfigRepository } from '../repositories/configRepository';;
 interface IUpdateConfigBody {
   monto_multa_base?: number;
   monto_instalacion_base?: number;
+  cuenta_bancaria?: string;
 }
 
 export class ConfigController {
@@ -19,9 +20,9 @@ export class ConfigController {
           }
         };
     public updateConfig = async (req: Request<{}, any, IUpdateConfigBody>, res: Response): Promise<any> => {
-          const { monto_multa_base, monto_instalacion_base } = req.body;
+          const { monto_multa_base, monto_instalacion_base, cuenta_bancaria } = req.body;
           try {
-            await this.configRepository.updateConfig(monto_multa_base || 0, monto_instalacion_base || 0);
+            await this.configRepository.updateConfig(monto_multa_base || 0, monto_instalacion_base || 0, cuenta_bancaria || '');
             res.json({ message: 'Configuración actualizada exitosamente' });
           } catch (error) {
             console.error('Error updating config:', error);

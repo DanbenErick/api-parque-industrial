@@ -14,6 +14,9 @@ export interface ILectura {
   fecha_registro?: Date;
   estado?: string;
   justificacion?: string | null;
+  lectura_actual_original?: number | null;
+  lectura_actual_punta_original?: number | null;
+  factor_potencia_original?: number | null;
   es_cambio_medidor?: boolean | number;
   lectura_final_viejo?: number | null;
   lectura_inicial_nuevo?: number | null;

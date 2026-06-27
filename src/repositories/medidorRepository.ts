@@ -2,12 +2,8 @@ import { Database } from '../config/db';
 
 export class MedidorRepository {
     constructor(private db: Database) {}
-    public findAll = async () => {
-          const [rows]: any = await this.db.query(`
-    SELECT m.id, m.num_serie, m.tipo, m.operativo, m.usuario_id,
-           u.nombre_razonsocial as propietario, u.documento_identidad, u.direccion,
-           COALESCE(ul.lectura_actual, 0) as ultima_lectura,
-           COALESCE(ul.lectura_actual_punta, 0) as ultima_lectura_punta
+    public findAll = async (search: string = '') => {
+          let baseQuery = `
     FROM medidor m
     INNER JOIN usuario u ON m.usuario_id = u.id
     LEFT JOIN (
@@ -17,7 +13,24 @@ export class MedidorRepository {
       WHERE deleted_at IS NULL
     ) ul ON ul.medidor_id = m.id AND ul.rn = 1
     WHERE m.deleted_at IS NULL
-  `);
+  `;
+          const params = [];
+
+          if (search && search.trim() !== '') {
+            baseQuery += ` AND (m.num_serie LIKE ? OR u.documento_identidad LIKE ? OR u.nombre_razonsocial LIKE ?)`;
+            const searchTerm = `%${search.trim()}%`;
+            params.push(searchTerm, searchTerm, searchTerm);
+          }
+
+          const [rows]: any = await this.db.query(`
+    SELECT m.id, m.num_serie, m.tipo, m.operativo, m.usuario_id,
+           u.nombre_razonsocial as propietario, u.documento_identidad, u.direccion,
+           COALESCE(ul.lectura_actual, 0) as ultima_lectura,
+           COALESCE(ul.lectura_actual_punta, 0) as ultima_lectura_punta
+    ${baseQuery}
+    ORDER BY u.nombre_razonsocial ASC
+    LIMIT 50
+  `, params);
           return rows;
         };
     public findByUsuario = async (usuarioId: any) => {

@@ -11,7 +11,7 @@ export class ReciboService {
 
           try {
             await connection.query('SET @current_user_id = ?', [admin_id]);
-            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador FROM periodo_facturacion WHERE id = ?', [periodo_id]);
+            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador, fecha_emision_recibo, fecha_vencimiento, fecha_corte FROM periodo_facturacion WHERE id = ?', [periodo_id]);
             if (periodos.length === 0) {
                 await connection.rollback();
                 throw new Error('Período no encontrado');
@@ -21,6 +21,22 @@ export class ReciboService {
             const [configs]: any = await connection.query('SELECT monto_instalacion_base FROM configuracion LIMIT 1');
             const config = configs[0] || { monto_instalacion_base: 0 };
             const instalacion_base = parseFloat(config.monto_instalacion_base) || 0;
+
+            const [cargosActivos]: any = await connection.query(`
+              SELECT c.tipo, c.descripcion, c.monto_defecto 
+              FROM catalogo_cargo c
+              LEFT JOIN catalogo_cargo_periodo cp ON c.id = cp.catalogo_cargo_id AND cp.periodo_facturacion_id = ?
+              WHERE c.es_activo = TRUE 
+                AND c.deleted_at IS NULL
+                AND (cp.periodo_facturacion_id IS NOT NULL OR c.es_global = TRUE)
+            `, [periodo_id]);
+            
+            let cargoFijoConfigurado = 0;
+            for (const c of cargosActivos) {
+              if (c.tipo === 'Costo') {
+                cargoFijoConfigurado += parseFloat(c.monto_defecto) || 0;
+              }
+            }
 
             const [lecturas]: any = await connection.query(`
       SELECT l.id as lectura_id, l.consumo_calculado, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, m.usuario_id, m.id as medidor_id, m.cobro_instalacion_pendiente, m.tipo
@@ -36,9 +52,11 @@ export class ReciboService {
       WHERE u.rol_id = 3 AND u.es_activo = TRUE AND u.deleted_at IS NULL AND m.id IS NULL
     `);
 
-            const [recibosExistentes]: any = await connection.query("SELECT usuario_id FROM recibo WHERE periodo_id = ? AND deleted_at IS NULL AND estado != '${EstadoRecibo.ANULADO}'", [periodo_id]);
+            const [recibosExistentes]: any = await connection.query(`SELECT usuario_id, lectura_id FROM recibo WHERE periodo_id = ? AND deleted_at IS NULL AND estado != '${EstadoRecibo.ANULADO}'`, [periodo_id]);
+            const lecturasFacturadas = new Set(recibosExistentes.map((r: any) => r.lectura_id).filter((id: any) => id !== null));
             const usuariosConRecibo = new Set(recibosExistentes.map((r: any) => r.usuario_id));
-            const lecturasAProcesar = lecturas.filter((l: any) => !usuariosConRecibo.has(l.usuario_id));
+            
+            const lecturasAProcesar = lecturas.filter((l: any) => !lecturasFacturadas.has(l.lectura_id));
             const usuariosSinMedidorAProcesar = usuariosSinMedidor.filter((u: any) => !usuariosConRecibo.has(u.usuario_id));
 
             const [saldos]: any = await connection.query('SELECT id, saldo_a_favor FROM usuario WHERE saldo_a_favor > 0 AND deleted_at IS NULL');
@@ -98,7 +116,11 @@ export class ReciboService {
                 cargo_factor_potencia = consumo_reactivo * tarifa_reactiva;
               }
               
-              const deuda_vencida = deudaMap[lectura.usuario_id] || 0;
+              let deuda_vencida_aplicada = 0;
+              if (deudaMap[lectura.usuario_id] > 0) {
+                deuda_vencida_aplicada = deudaMap[lectura.usuario_id];
+                deudaMap[lectura.usuario_id] = 0; // Prevent applying debt multiple times for the same user
+              }
 
               let instalacion_medidor = 0;
               if (lectura.cobro_instalacion_pendiente) {
@@ -106,7 +128,8 @@ export class ReciboService {
                 medidoresToUpdate.push(lectura.medidor_id);
               }
 
-              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_mantenimiento + deuda_vencida + instalacion_medidor;
+              const cargo_fijo_total = cargoFijoConfigurado;
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + cargo_fijo_total;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -126,15 +149,14 @@ export class ReciboService {
               const total = subtotal + igv;
               const estado = total <= 0.02 ? EstadoRecibo.PAGADO : EstadoRecibo.PENDIENTE;
 
-              const fechaEmision = new Date();
-              const fechaVencimiento = new Date();
-              fechaVencimiento.setDate(fechaVencimiento.getDate() + 7);
+              const fechaEmision = periodo.fecha_emision_recibo ? new Date(periodo.fecha_emision_recibo) : new Date();
+              const fechaVencimiento = periodo.fecha_vencimiento ? new Date(periodo.fecha_vencimiento) : new Date(new Date().getTime() + 7 * 86400000);
 
               const nroComprobante = `REC-${currentYear}-${String(siguienteComprobanteId++).padStart(4, '0')}`;
 
               valuesToInsert.push([
                 lectura.usuario_id, periodo_id, lectura.lectura_id, nroComprobante,
-                cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, 0, deuda_vencida, instalacion_medidor, subtotal, igv, total,
+                cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo_total, deuda_vencida_aplicada, instalacion_medidor, subtotal, igv, total,
                 fechaEmision, fechaVencimiento, estado, descuento, motivo_descuento
               ]);
               
@@ -146,7 +168,7 @@ export class ReciboService {
               const cargo_energia_punta = 0;
               const cargo_factor_potencia = 0;
               const cargo_mantenimiento = 0;
-              const cargo_fijo = 10.00;
+              const cargo_fijo = cargoFijoConfigurado;
               
               const deuda_vencida = deudaMap[u.usuario_id] || 0;
               const instalacion_medidor = 0;
@@ -171,9 +193,8 @@ export class ReciboService {
               const total = subtotal + igv;
               const estado = total <= 0.02 ? EstadoRecibo.PAGADO : EstadoRecibo.PENDIENTE;
 
-              const fechaEmision = new Date();
-              const fechaVencimiento = new Date();
-              fechaVencimiento.setDate(fechaVencimiento.getDate() + 7);
+              const fechaEmision = periodo.fecha_emision_recibo ? new Date(periodo.fecha_emision_recibo) : new Date();
+              const fechaVencimiento = periodo.fecha_vencimiento ? new Date(periodo.fecha_vencimiento) : new Date(new Date().getTime() + 7 * 86400000);
 
               const nroComprobante = `REC-${currentYear}-${String(siguienteComprobanteId++).padStart(4, '0')}`;
 
@@ -230,13 +251,13 @@ export class ReciboService {
             connection.release();
           }
         };
-    public generarIndividual = async (periodo_id: any, usuario_id: any, admin_id: any) => {
+    public generarIndividual = async (periodo_id: any, usuario_id: any, admin_id: any, medidor_id: any = null) => {
           const connection: any = await this.db.getConnection();
           await connection.beginTransaction();
 
           try {
             await connection.query('SET @current_user_id = ?', [admin_id]);
-            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador FROM periodo_facturacion WHERE id = ?', [periodo_id]);
+            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador, fecha_emision_recibo, fecha_vencimiento, fecha_corte FROM periodo_facturacion WHERE id = ?', [periodo_id]);
             if (periodos.length === 0) {
                 await connection.rollback();
                 throw new Error('Período no encontrado');
@@ -247,34 +268,92 @@ export class ReciboService {
             const config = configs[0] || { monto_instalacion_base: 0 };
             const instalacion_base = parseFloat(config.monto_instalacion_base) || 0;
 
-            const [recibosPrevios]: any = await connection.query(`
-      SELECT id FROM recibo 
-      WHERE periodo_id = ? AND usuario_id = ? AND deleted_at IS NULL AND estado != '${EstadoRecibo.ANULADO}'
-    `, [periodo_id, usuario_id]);
-
-            if (recibosPrevios.length > 0) {
-              await connection.rollback();
-              throw new Error('El usuario ya tiene una factura generada para este periodo');
+            const [cargosActivos]: any = await connection.query(`
+              SELECT c.tipo, c.descripcion, c.monto_defecto 
+              FROM catalogo_cargo c
+              LEFT JOIN catalogo_cargo_periodo cp ON c.id = cp.catalogo_cargo_id AND cp.periodo_facturacion_id = ?
+              WHERE c.es_activo = TRUE 
+                AND c.deleted_at IS NULL
+                AND (cp.periodo_facturacion_id IS NOT NULL OR c.es_global = TRUE)
+            `, [periodo_id]);
+            
+            let cargoFijoConfigurado = 0;
+            for (const c of cargosActivos) {
+              if (c.tipo === 'Costo') {
+                cargoFijoConfigurado += parseFloat(c.monto_defecto) || 0;
+              }
             }
 
-            const [medidores]: any = await connection.query('SELECT id, cobro_instalacion_pendiente FROM medidor WHERE usuario_id = ? AND deleted_at IS NULL', [usuario_id]);
-            const tieneMedidor = medidores.length > 0;
-            
-            let lectura = null;
+            const [recibosPrevios]: any = await connection.query(`
+      SELECT lectura_id FROM recibo 
+      WHERE periodo_id = ? AND usuario_id = ? AND deleted_at IS NULL AND estado != '${EstadoRecibo.ANULADO}'
+    `, [periodo_id, usuario_id]);
+            const lecturasFacturadas = new Set(recibosPrevios.map((r: any) => r.lectura_id).filter((id: any) => id !== null));
+            const tieneFacturaFija = recibosPrevios.some((r: any) => r.lectura_id === null);
 
-            if (tieneMedidor) {
-              const [lecturas]: any = await connection.query(`
+            let queryMedidores = 'SELECT id, cobro_instalacion_pendiente, tipo FROM medidor WHERE usuario_id = ? AND deleted_at IS NULL';
+            let paramsMedidores: any[] = [usuario_id];
+            if (medidor_id) {
+              queryMedidores += ' AND id = ?';
+              paramsMedidores.push(medidor_id);
+            }
+            const [medidores]: any = await connection.query(queryMedidores, paramsMedidores);
+            const medidoresReales = medidores.filter((m: any) => m.tipo.toLowerCase() !== 'sin medidor');
+            const medidoresFicticios = medidores.filter((m: any) => m.tipo.toLowerCase() === 'sin medidor');
+            
+            let lecturasGenerar: any[] = [];
+
+            if (medidoresReales.length > 0) {
+              let queryLecturas = `
         SELECT l.id as lectura_id, l.consumo_calculado, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, m.usuario_id, m.id as medidor_id, m.cobro_instalacion_pendiente, m.tipo
         FROM lectura l
         INNER JOIN medidor m ON l.medidor_id = m.id
-        WHERE l.periodo_id = ? AND m.usuario_id = ? AND l.deleted_at IS NULL AND m.deleted_at IS NULL
-      `, [periodo_id, usuario_id]);
-
-              if (lecturas.length === 0) {
-                await connection.rollback();
-                throw new Error('El usuario tiene medidor pero no cuenta con una lectura registrada en este periodo');
+        WHERE l.periodo_id = ? AND m.usuario_id = ? AND l.deleted_at IS NULL AND m.deleted_at IS NULL AND LOWER(m.tipo) != 'sin medidor'
+      `;
+              let paramsLecturas: any[] = [periodo_id, usuario_id];
+              if (medidor_id) {
+                queryLecturas += ' AND m.id = ?';
+                paramsLecturas.push(medidor_id);
               }
-              lectura = lecturas[0];
+
+              const [lecturas]: any = await connection.query(queryLecturas, paramsLecturas);
+
+              const lecturasAFiltrar = lecturas.filter((l: any) => !lecturasFacturadas.has(l.lectura_id));
+              
+              if (lecturasAFiltrar.length === 0 && lecturas.length > 0) {
+                // Tienen lecturas pero ya facturadas, se ignoran y el error se lanza al final si lecturasGenerar queda vacío
+              } else if (lecturas.length === 0) {
+                // Si seleccionó un medidor específico y era real, o en bulk pero no hay NINGUNA lectura
+                if (medidor_id) {
+                  // Si seleccionamos específicamente este medidor real y no hay lectura
+                  await connection.rollback();
+                  throw new Error('El medidor seleccionado no cuenta con lecturas registradas en este periodo.');
+                } else if (medidoresFicticios.length === 0) {
+                  // Si no hay medidores ficticios, es un error general de falta de lectura
+                  await connection.rollback();
+                  throw new Error('El usuario tiene medidor pero no cuenta con lecturas registradas en este periodo.');
+                }
+              }
+              
+              lecturasGenerar = [...lecturasAFiltrar];
+            }
+
+            if (medidoresFicticios.length > 0) {
+              const yaTieneFactura = recibosPrevios.some((r: any) => r.lectura_id === null);
+              if (!yaTieneFactura) {
+                const tieneInstalacion = medidoresFicticios.some((m: any) => m.cobro_instalacion_pendiente);
+                lecturasGenerar.push({ isDummy: true, cobro_instalacion_pendiente: tieneInstalacion });
+              }
+            } else if (medidores.length === 0) {
+               const yaTieneFactura = recibosPrevios.some((r: any) => r.lectura_id === null);
+               if (!yaTieneFactura) {
+                 lecturasGenerar.push({ isDummy: true, cobro_instalacion_pendiente: false });
+               }
+            }
+            
+            if (lecturasGenerar.length === 0) {
+                await connection.rollback();
+                throw new Error('El usuario ya tiene facturas generadas para todos sus medidores en este periodo.');
             }
 
             const [usuarios]: any = await connection.query('SELECT saldo_a_favor FROM usuario WHERE id = ?', [usuario_id]);
@@ -295,65 +374,6 @@ export class ReciboService {
         AND pf.mes_anio < ?
     `, [usuario_id, periodo.mes_anio]);
             
-            const deuda_vencida = parseFloat(deudas[0].deuda_total) || 0;
-
-            let consumo = 0;
-            let cargo_energia = 0;
-            let cargo_energia_punta = 0;
-            let cargo_factor_potencia = 0;
-            let cargo_mantenimiento = 0;
-            let cargo_fijo = 0;
-            let instalacion_medidor = 0;
-
-            if (tieneMedidor) {
-              consumo = parseFloat(lectura.consumo_calculado) || 0;
-              const tarifa_kwh = parseFloat(periodo.tarifa_kwh) || 0;
-              const tarifa_mantenimiento = lectura.tipo === TipoMedidor.TIEMPO_REAL ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
-              
-              cargo_energia = consumo * tarifa_kwh;
-              cargo_mantenimiento = tarifa_mantenimiento || 0;
-
-              if (lectura.tipo === TipoMedidor.TIEMPO_REAL) {
-                const consumo_punta = parseFloat(lectura.consumo_calculado_punta) || 0;
-                const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
-                cargo_energia_punta = consumo_punta * tarifa_kwh_punta;
-                
-                const consumo_reactivo = parseFloat(lectura.factor_potencia) || 0;
-                const tarifa_reactiva = parseFloat(lectura.precio_factor_potencia) || 0;
-                cargo_factor_potencia = consumo_reactivo * tarifa_reactiva;
-              }
-
-              if (lectura.cobro_instalacion_pendiente) {
-                instalacion_medidor = instalacion_base;
-              }
-            } else {
-              cargo_fijo = 10.00;
-            }
-
-            let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_mantenimiento + cargo_fijo + deuda_vencida + instalacion_medidor;
-            
-            let descuento = 0;
-            let motivo_descuento = null;
-            if (saldo_a_favor > 0 && subtotal > 0) {
-              if (saldo_a_favor >= subtotal) {
-                descuento = subtotal;
-                saldo_a_favor -= subtotal;
-              } else {
-                descuento = saldo_a_favor;
-                saldo_a_favor = 0;
-              }
-              motivo_descuento = 'Saldo a favor aplicado';
-              subtotal -= descuento;
-            }
-
-            const igv = 0;
-            const total = subtotal + igv;
-            const estado = total <= 0.02 ? EstadoRecibo.PAGADO : EstadoRecibo.PENDIENTE;
-
-            const fechaEmision = new Date();
-            const fechaVencimiento = new Date();
-            fechaVencimiento.setDate(fechaVencimiento.getDate() + 7);
-
             const currentYear = new Date().getFullYear();
             const [maxNum]: any = await connection.query(
               `SELECT MAX(CAST(SUBSTRING_INDEX(numero_comprobante, '-', -1) AS UNSIGNED)) as ultimo 
@@ -361,7 +381,6 @@ export class ReciboService {
               [`REC-${currentYear}-%`]
             );
             let siguienteComprobanteId = (maxNum[0]?.ultimo || 0) + 1;
-            const nroComprobante = `REC-${currentYear}-${String(siguienteComprobanteId).padStart(4, '0')}`;
 
             // 1. Caducar recibos pendientes de meses anteriores para el usuario
             await connection.query(`
@@ -375,20 +394,97 @@ export class ReciboService {
                 AND r.deleted_at IS NULL
             `, [periodo_id, usuario_id]);
 
-            await connection.query(`
-      INSERT INTO recibo (
-        usuario_id, periodo_id, lectura_id, numero_comprobante, 
-        cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo, deuda_vencida, instalacion_medidor, subtotal, igv, total, 
-        fecha_emision, fecha_vencimiento, estado, descuento, motivo_descuento
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-              usuario_id, periodo_id, lectura ? lectura.lectura_id : null, nroComprobante,
-              cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo, deuda_vencida, instalacion_medidor, subtotal, igv, total,
-              fechaEmision, fechaVencimiento, estado, descuento, motivo_descuento
-            ]);
-            
-            if (tieneMedidor && lectura?.cobro_instalacion_pendiente) {
-              await connection.query('UPDATE medidor SET cobro_instalacion_pendiente = FALSE WHERE id = ?', [lectura.medidor_id]);
+            let deuda_vencida_actual = parseFloat(deudas[0]?.deuda_total) || 0;
+            let recibosGenerados = 0;
+
+            for (const lectura of lecturasGenerar) {
+              let consumo = 0;
+              let cargo_energia = 0;
+              let cargo_energia_punta = 0;
+              let cargo_factor_potencia = 0;
+              let cargo_mantenimiento = 0;
+              let cargo_fijo = 0;
+              let instalacion_medidor = 0;
+
+              if (lectura && !lectura.isDummy) {
+                consumo = parseFloat(lectura.consumo_calculado) || 0;
+                const tarifa_kwh = parseFloat(periodo.tarifa_kwh) || 0;
+                const tarifa_mantenimiento = lectura.tipo === TipoMedidor.TIEMPO_REAL ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
+                
+                cargo_energia = consumo * tarifa_kwh;
+                cargo_mantenimiento = tarifa_mantenimiento || 0;
+
+                if (lectura.tipo === TipoMedidor.TIEMPO_REAL) {
+                  const consumo_punta = parseFloat(lectura.consumo_calculado_punta) || 0;
+                  const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
+                  cargo_energia_punta = consumo_punta * tarifa_kwh_punta;
+                  
+                  const consumo_reactivo = parseFloat(lectura.factor_potencia) || 0;
+                  const tarifa_reactiva = parseFloat(lectura.precio_factor_potencia) || 0;
+                  cargo_factor_potencia = consumo_reactivo * tarifa_reactiva;
+                }
+
+                if (lectura.cobro_instalacion_pendiente) {
+                  instalacion_medidor = instalacion_base;
+                }
+              } else {
+                cargo_fijo = cargoFijoConfigurado;
+                if (lectura && lectura.cobro_instalacion_pendiente) {
+                  instalacion_medidor = instalacion_base;
+                }
+              }
+
+              // Apply debt only once to the first generated receipt
+              let deuda_vencida_aplicada = 0;
+              if (deuda_vencida_actual > 0) {
+                deuda_vencida_aplicada = deuda_vencida_actual;
+                deuda_vencida_actual = 0;
+              }
+              
+              const cargo_fijo_total = cargoFijoConfigurado;
+
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + cargo_fijo_total;
+              
+              let descuento = 0;
+              let motivo_descuento = null;
+              if (saldo_a_favor > 0 && subtotal > 0) {
+                if (saldo_a_favor >= subtotal) {
+                  descuento = subtotal;
+                  saldo_a_favor -= subtotal;
+                } else {
+                  descuento = saldo_a_favor;
+                  saldo_a_favor = 0;
+                }
+                motivo_descuento = 'Saldo a favor aplicado';
+                subtotal -= descuento;
+              }
+
+              const igv = 0;
+              const total = subtotal + igv;
+              const estado = total <= 0.02 ? EstadoRecibo.PAGADO : EstadoRecibo.PENDIENTE;
+
+              const fechaEmision = periodo.fecha_emision_recibo ? new Date(periodo.fecha_emision_recibo) : new Date();
+              const fechaVencimiento = periodo.fecha_vencimiento ? new Date(periodo.fecha_vencimiento) : new Date(new Date().getTime() + 7 * 86400000);
+
+              const nroComprobante = `REC-${currentYear}-${String(siguienteComprobanteId++).padStart(4, '0')}`;
+
+              await connection.query(`
+        INSERT INTO recibo (
+          usuario_id, periodo_id, lectura_id, numero_comprobante, 
+          cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo, deuda_vencida, instalacion_medidor, subtotal, igv, total, 
+          fecha_emision, fecha_vencimiento, estado, descuento, motivo_descuento
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+                usuario_id, periodo_id, lectura && !lectura.isDummy ? lectura.lectura_id : null, nroComprobante,
+                cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo_total, deuda_vencida_aplicada, instalacion_medidor, subtotal, igv, total,
+                fechaEmision, fechaVencimiento, estado, descuento, motivo_descuento
+              ]);
+              
+              if (lectura && lectura.cobro_instalacion_pendiente) {
+                await connection.query('UPDATE medidor SET cobro_instalacion_pendiente = FALSE WHERE id = ?', [lectura.medidor_id]);
+              }
+              
+              recibosGenerados++;
             }
 
             if (saldo_a_favor !== original_saldo) {

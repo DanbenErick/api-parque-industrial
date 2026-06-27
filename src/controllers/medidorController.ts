@@ -22,7 +22,8 @@ export class MedidorController {
 
     public getMedidores = async (req: Request, res: Response): Promise<any> => {
           try {
-            const medidores = await this.medidorRepo.findAll();
+            const search = req.query.search as string;
+            const medidores = await this.medidorRepo.findAll(search);
             res.json(medidores);
           } catch (error) {
             console.error('Error al obtener medidores:', error);

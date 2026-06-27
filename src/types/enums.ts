@@ -19,5 +19,5 @@ export enum EstadoPeriodo {
 
 export enum TipoMedidor {
   NORMAL = 'Normal',
-  TIEMPO_REAL = 'Tiempo Real'
+  HORA_PUNTA = 'Hora Punta'
 }

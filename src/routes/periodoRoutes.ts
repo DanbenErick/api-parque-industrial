@@ -22,6 +22,9 @@ export class PeriodoRoutes {
         
         // Admin and Operario can read periods
         this.router.get('/', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.periodoController.getPeriodos);
+        
+        // Stats
+        this.router.get('/:mes_anio/stats', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.periodoController.getStats);
     }
 
     public getRouter(): Router {

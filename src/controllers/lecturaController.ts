@@ -47,7 +47,11 @@ export class LecturaController {
 
     public getLecturas = async (req: Request, res: Response): Promise<any> => {
           try {
-            const lecturas = await this.lecturaRepo.findAll();
+            const page = parseInt(req.query.page as string) || 1;
+            const limit = parseInt(req.query.limit as string) || 500;
+            const periodo = req.query.periodo as string;
+            
+            const lecturas = await this.lecturaRepo.findAll(page, limit, periodo);
             res.json(lecturas);
           } catch (error) {
             console.error('Error al obtener lecturas:', error);
@@ -155,6 +159,22 @@ export class LecturaController {
           req.body.consumo_calculado = consumo_calculado;
 
           try {
+            // Fetch current record to see if we need to preserve original values
+            const [existingRows]: any = await this.lecturaRepo['db'].query(
+              'SELECT lectura_actual, lectura_actual_punta, factor_potencia, lectura_actual_original FROM lectura WHERE id = ?', 
+              [id]
+            );
+            
+            if (existingRows.length > 0) {
+              const existing = existingRows[0];
+              // Only set original values if they haven't been set yet (first modification)
+              if (existing.lectura_actual_original === null) {
+                req.body.lectura_actual_original = existing.lectura_actual;
+                req.body.lectura_actual_punta_original = existing.lectura_actual_punta;
+                req.body.factor_potencia_original = existing.factor_potencia;
+              }
+            }
+
             const affectedRows = await this.lecturaRepo.update(id as any, req.body);
 
             if (affectedRows === 0) {

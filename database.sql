@@ -267,7 +267,7 @@ CREATE TABLE IF NOT EXISTS `pago` (
   CONSTRAINT `chk_pago_monto` CHECK ((`monto_pagado` > 0))
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Pagos realizados contra recibos de cobro';
 
--- Volcando datos para la tabla parque_industrial_jicamarca.pago: ~1 rows (aproximadamente)
+-- Volcando datos para la tabla parque_industrial_jicamarca.pago: ~2 rows (aproximadamente)
 DELETE FROM `pago`;
 INSERT INTO `pago` (`id`, `recibo_id`, `monto_pagado`, `metodo_pago`, `numero_operacion`, `fecha_pago`, `estado_validacion`, `created_at`, `updated_at`, `deleted_at`) VALUES
 	(10, 36, 24.00, 'Transferencia', '0001', '2026-06-13 07:15:26', 'Confirmado', '2026-06-13 07:15:26', '2026-06-13 07:15:26', NULL),
@@ -293,7 +293,7 @@ CREATE TABLE IF NOT EXISTS `periodo_facturacion` (
   CONSTRAINT `chk_periodo_fechas` CHECK ((`fecha_fin` > `fecha_inicio`))
 ) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Períodos de facturación con tarifas centralizadas';
 
--- Volcando datos para la tabla parque_industrial_jicamarca.periodo_facturacion: ~3 rows (aproximadamente)
+-- Volcando datos para la tabla parque_industrial_jicamarca.periodo_facturacion: ~4 rows (aproximadamente)
 DELETE FROM `periodo_facturacion`;
 INSERT INTO `periodo_facturacion` (`id`, `mes_anio`, `factor_multiplicador`, `tarifa_kwh`, `tarifa_kwh_punta`, `tarifa_mantenimiento_normal`, `tarifa_mantenimiento_tiempo_real`, `fecha_inicio`, `fecha_fin`, `created_at`, `updated_at`, `deleted_at`) VALUES
 	(14, '2026-05', 1.0000, 0.5600, 0.5800, 10.00, 5.00, '2026-05-01', '2026-05-31', '2026-06-13 07:11:58', '2026-06-13 07:11:58', NULL),

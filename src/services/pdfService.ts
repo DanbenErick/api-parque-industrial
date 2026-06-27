@@ -6,6 +6,7 @@ import { ReciboRepository } from '../repositories/reciboRepository';;
 import { AuditoriaRepository } from '../repositories/auditoriaRepository';;
 import { PagoRepository } from '../repositories/pagoRepository';;
 import { UsuarioRepository } from '../repositories/usuarioRepository';;
+import { Database } from '../config/db';
 import { RolUsuario } from '../types/enums';
 
 
@@ -37,7 +38,7 @@ interface IGetRecibosQuery {
 // -------------------------------------------------------
 // GENERAR PDF DE RECIBO DE LUZ (V2 - DISEÑO REDISEÑADO FACTURA)
 // -------------------------------------------------------
-const drawReciboLayoutV2 = (doc: any, recibo: any, historial: any, logoPath: any) => {
+const drawReciboLayoutV2 = (doc: any, recibo: any, historial: any, logoPath: any, cuentaBancaria: string) => {
   const PRIMARY = '#1e3a8a';  // Azul muy oscuro
   const SECONDARY = '#e11d48';  // Rojo destaque
   const TEXT_MAIN = '#1e293b';  
@@ -274,7 +275,7 @@ const drawReciboLayoutV2 = (doc: any, recibo: any, historial: any, logoPath: any
   doc.fillColor(SECONDARY).font('Lexend-Medium').text('ÚLTIMO DÍA DE PAGO:', margin + 15, y + 33);
   doc.fontSize(12).font('Lexend-Bold').text(formatDate(recibo.fecha_vencimiento), margin + 130, y + 31);
   
-  const fechaCorte = recibo.fecha_vencimiento ? new Date(new Date(recibo.fecha_vencimiento).getTime() + 86400000) : null;
+  const fechaCorte = recibo.fecha_corte ? new Date(recibo.fecha_corte) : (recibo.fecha_vencimiento ? new Date(new Date(recibo.fecha_vencimiento).getTime() + 86400000) : null);
   doc.fillColor(TEXT_MAIN).fontSize(9).font('Lexend-Medium').text('CORTE DE SERVICIO:', margin + 15, y + 51);
   doc.font('Lexend-Bold').text(formatDate(fechaCorte), margin + 130, y + 51);
 
@@ -297,8 +298,8 @@ const drawReciboLayoutV2 = (doc: any, recibo: any, historial: any, logoPath: any
   doc.fontSize(9).font('Lexend-Medium').text('Depositar en ventanilla o agentes a la siguiente cuenta recaudadora:', margin, talonY + 18);
   
   doc.roundedRect(margin, talonY + 40, 270, 50, 6).fillAndStroke('#eff6ff', '#bfdbfe'); // Light blue box
-  doc.fillColor(PRIMARY).fontSize(11).font('Lexend-Bold').text('BANCO DE CRÉDITO DEL PERÚ (BCP)', margin + 15, talonY + 52);
-  doc.fontSize(14).text('Nº CTA: 191-14302973046', margin + 15, talonY + 70);
+  doc.fillColor(PRIMARY).fontSize(11).font('Lexend-Bold').text('CUENTA BANCARIA', margin + 15, talonY + 52);
+  doc.fontSize(14).text(cuentaBancaria || 'Nº CTA: 191-14302973046', margin + 15, talonY + 70);
 
   doc.fillColor(TEXT_MAIN).fontSize(9).font('Lexend-Medium');
   doc.text('Código de Suministro:', doc.page.width - margin - 220, talonY + 45);
@@ -310,7 +311,7 @@ const drawReciboLayoutV2 = (doc: any, recibo: any, historial: any, logoPath: any
 // -------------------------------------------------------
 // GENERAR PDF DE RECIBO DE LUZ (V3 - DISEÑO PREMIUM)
 // -------------------------------------------------------
-const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any) => {
+const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any, cuentaBancaria: string) => {
   // ── PALETA ──
   const NAVY      = '#0f172a';
   const TEAL      = '#0d9488';
@@ -348,16 +349,15 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   // ═══════════════════════════════════════════════
   // 1. HEADER CORPORATIVO — BARRA NAVY CON LOGO
   // ═══════════════════════════════════════════════
-  const headerH = 70;
+  const headerH = 58;
   doc.rect(0, 0, doc.page.width, headerH).fill(NAVY);
   // Acento teal inferior
-  doc.rect(0, headerH, doc.page.width, 4).fill(TEAL);
+  doc.rect(0, headerH, doc.page.width, 3).fill(TEAL);
 
   // Logo con marco circular premium
-  
-  const logoCenterX = margin + 26;
-  const logoCenterY = 35;
-  const logoRadius = 24;
+  const logoCenterX = margin + 22;
+  const logoCenterY = 30;
+  const logoRadius = 20;
 
   // Anillo exterior teal (glow)
   doc.circle(logoCenterX, logoCenterY, logoRadius + 3).fill(TEAL_DARK);
@@ -373,14 +373,14 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   }
 
   // Nombre empresa (ajustado al espacio tras el logo)
-  const textStartX = margin + 65;
-  doc.fillColor(WHITE).fontSize(16).font('Lexend-Bold');
-  doc.text('PARQUE INDUSTRIAL', textStartX, 16);
-  doc.fillColor(TEAL).fontSize(9).font('Lexend-Medium');
-  doc.text('ANEXO 8 — JICAMARCA', textStartX, 36);
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend');
-  doc.text('Sistema de Gestión Energética', textStartX, 48);
-  y = headerH + 4 + 18;
+  const textStartX = margin + 55;
+  doc.fillColor(WHITE).fontSize(14).font('Lexend-Bold');
+  doc.text('PARQUE INDUSTRIAL', textStartX, 14);
+  doc.fillColor(TEAL).fontSize(8).font('Lexend-Medium');
+  doc.text('ANEXO 8 — JICAMARCA', textStartX, 31);
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend');
+  doc.text('Sistema de Gestión Energética', textStartX, 42);
+  y = headerH + 3 + 12;
 
   // ═══════════════════════════════════════════════
   // 2. DATOS DEL SOCIO Y PERIODO (2 COLUMNAS)
@@ -390,32 +390,32 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   const col2X = margin + col1W + (W * 0.03);
 
   // -- Columna izquierda: Datos del socio
-  doc.roundedRect(margin, y, col1W, 80, 6).fill(BG).strokeColor(BORDER).stroke();
+  doc.roundedRect(margin, y, col1W, 70, 5).fill(BG).strokeColor(BORDER).stroke();
   
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-  doc.text('DATOS DEL SOCIO', margin + 12, y + 8);
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+  doc.text('DATOS DEL SOCIO', margin + 10, y + 6);
   
-  doc.fillColor(NAVY).fontSize(13).font('Lexend-Bold');
-  doc.text(recibo.nombre_razonsocial || '-', margin + 12, y + 22, { width: col1W - 24 });
+  doc.fillColor(NAVY).fontSize(11).font('Lexend-Bold');
+  doc.text(recibo.nombre_razonsocial || '-', margin + 10, y + 18, { width: col1W - 20 });
   
-  doc.fillColor(SLATE).fontSize(8).font('Lexend');
-  doc.text(`${recibo.documento_identidad || '-'}`, margin + 12, y + 42);
-  doc.text(`${recibo.direccion || '-'}`, margin + 12, y + 55);
+  doc.fillColor(SLATE).fontSize(7.5).font('Lexend');
+  doc.text(`${recibo.documento_identidad || '-'}`, margin + 10, y + 35);
+  doc.text(`${recibo.direccion || '-'}`, margin + 10, y + 46);
   doc.fillColor(SLATE_LT).font('Lexend-Medium');
-  doc.text(`Medidor: ${recibo.num_medidor || 'Sin medidor'}`, margin + 12, y + 68);
+  doc.text(`Medidor: ${recibo.num_medidor || 'Sin medidor'}`, margin + 10, y + 58);
 
   // -- Columna derecha: Periodo
-  doc.roundedRect(col2X, y, col2W, 80, 6).fill(BG).strokeColor(BORDER).stroke();
+  doc.roundedRect(col2X, y, col2W, 70, 5).fill(BG).strokeColor(BORDER).stroke();
   
-  doc.fillColor(TEAL).fontSize(7).font('Lexend-Medium');
-  doc.text('MES FACTURADO', col2X + 12, y + 8);
+  doc.fillColor(TEAL).fontSize(6.5).font('Lexend-Medium');
+  doc.text('MES FACTURADO', col2X + 10, y + 6);
   
-  doc.fillColor(NAVY).fontSize(18).font('Lexend-Bold');
-  doc.text(mes.toUpperCase(), col2X + 12, y + 26);
-  doc.fillColor(NAVY).fontSize(14).font('Lexend-Medium');
-  doc.text(anio, col2X + 12, y + 50);
+  doc.fillColor(NAVY).fontSize(16).font('Lexend-Bold');
+  doc.text(mes.toUpperCase(), col2X + 10, y + 22);
+  doc.fillColor(NAVY).fontSize(12).font('Lexend-Medium');
+  doc.text(anio, col2X + 10, y + 44);
 
-  y += 92;
+  y += 78;
 
   // ═══════════════════════════════════════════════
   // 3. DETALLE DE LECTURAS (DINÁMICO)
@@ -424,7 +424,7 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   const fPotenciaLayout = parseFloat(recibo.factor_potencia) || 0;
   const esTiempoReal = consPuntaLayout > 0 || fPotenciaLayout > 0;
 
-  doc.roundedRect(margin, y, W, 55, 6).strokeColor(BORDER).stroke();
+  doc.roundedRect(margin, y, W, 46, 5).strokeColor(BORDER).stroke();
   const blockW = W / 4;
   let blocks = [];
 
@@ -446,27 +446,27 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
 
   blocks.forEach((b, i) => {
     const bx = margin + (blockW * i);
-    if (i > 0) doc.moveTo(bx, y + 10).lineTo(bx, y + 45).strokeColor(BORDER).lineWidth(1).stroke();
-    doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-    doc.text(b.label, bx + 12, y + 10, { lineBreak: false });
-    doc.fillColor(NAVY).fontSize(13).font('Lexend-Bold');
-    doc.text(b.value, bx + 12, y + 22, { lineBreak: false });
-    doc.fillColor(SLATE_LT).fontSize(7).font('Lexend');
-    doc.text(b.sub, bx + 12, y + 42, { lineBreak: false });
+    if (i > 0) doc.moveTo(bx, y + 8).lineTo(bx, y + 38).strokeColor(BORDER).lineWidth(1).stroke();
+    doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+    doc.text(b.label, bx + 10, y + 7, { lineBreak: false });
+    doc.fillColor(NAVY).fontSize(11).font('Lexend-Bold');
+    doc.text(b.value, bx + 10, y + 18, { lineBreak: false });
+    doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend');
+    doc.text(b.sub, bx + 10, y + 34, { lineBreak: false });
   });
 
-  y += 65;
+  y += 54;
 
   // ═══════════════════════════════════════════════
   // 4. TABLA DE IMPORTES FACTURADOS
   // ═══════════════════════════════════════════════
   // Header de la tabla
-  doc.roundedRect(margin, y, W, 26, 6).fill(NAVY);
-  doc.fillColor(WHITE).fontSize(8).font('Lexend-Bold');
-  doc.text('DESCRIPCIÓN', margin + 15, y + 9, { lineBreak: false });
-  doc.text('TARIFA', margin + W * 0.55, y + 9, { width: 60, align: 'right' as const, lineBreak: false });
-  doc.text('IMPORTE (S/)', margin + W * 0.72, y + 9, { width: W * 0.25, align: 'right' as const, lineBreak: false });
-  y += 30;
+  doc.roundedRect(margin, y, W, 22, 5).fill(NAVY);
+  doc.fillColor(WHITE).fontSize(7.5).font('Lexend-Bold');
+  doc.text('DESCRIPCIÓN', margin + 12, y + 7, { lineBreak: false });
+  doc.text('TARIFA', margin + W * 0.55, y + 7, { width: 60, align: 'right' as const, lineBreak: false });
+  doc.text('IMPORTE (S/)', margin + W * 0.72, y + 7, { width: W * 0.25, align: 'right' as const, lineBreak: false });
+  y += 24;
 
   // Gather line items
   const items = [];
@@ -490,7 +490,7 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   if (cargoMant > 0) items.push({ desc: 'Mantenimiento de Red', tarifa: null, monto: cargoMant });
 
   const cargoFijo = parseFloat(recibo.cargo_fijo) || 0;
-  if (cargoFijo > 0) items.push({ desc: 'Cargo Fijo Mensual (Sin Medidor)', tarifa: null, monto: cargoFijo });
+  if (cargoFijo > 0) items.push({ desc: 'Cargo Fijo Mensual', tarifa: null, monto: cargoFijo });
 
   const cargoCorte = parseFloat(recibo.cargo_corte) || 0;
   if (cargoCorte > 0) items.push({ desc: 'Corte y Reconexión', tarifa: null, monto: cargoCorte });
@@ -519,54 +519,54 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
 
   // Draw rows
   items.forEach((item, i) => {
-    const rowH = 20;
+    const rowH = 16;
     if (i % 2 === 0) {
       doc.rect(margin, y, W, rowH).fill(BG);
     }
-    doc.fillColor(SLATE).fontSize(9).font('Lexend');
-    doc.text(item.desc, margin + 15, y + 5, { lineBreak: false });
+    doc.fillColor(SLATE).fontSize(8).font('Lexend');
+    doc.text(item.desc, margin + 12, y + 3, { lineBreak: false });
     if (item.tarifa) {
-      doc.fillColor(SLATE_LT).fontSize(8).font('Lexend-Light');
-      doc.text(item.tarifa, margin + W * 0.48, y + 6, { width: 80, align: 'right' as const, lineBreak: false });
+      doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Light');
+      doc.text(item.tarifa, margin + W * 0.48, y + 4, { width: 80, align: 'right' as const, lineBreak: false });
     }
-    doc.fillColor(NAVY).fontSize(9).font('Lexend-Bold');
-    doc.text(fmt(item.monto), margin + W * 0.72, y + 5, { width: W * 0.25, align: 'right' as const, lineBreak: false });
+    doc.fillColor(NAVY).fontSize(8).font('Lexend-Bold');
+    doc.text(fmt(item.monto), margin + W * 0.72, y + 3, { width: W * 0.25, align: 'right' as const, lineBreak: false });
     y += rowH;
   });
 
   // Separator
   doc.moveTo(margin, y).lineTo(margin + W, y).strokeColor(BORDER).lineWidth(1).stroke();
-  y += 6;
+  y += 4;
 
   // Subtotal del mes
   const subtotalMes = parseFloat(recibo.subtotal) || 0;
-  doc.fillColor(SLATE).fontSize(9).font('Lexend-Medium');
-  doc.text('Subtotal del mes', margin + 15, y + 2, { lineBreak: false });
+  doc.fillColor(SLATE).fontSize(8).font('Lexend-Medium');
+  doc.text('Subtotal del mes', margin + 12, y + 2, { lineBreak: false });
   doc.fillColor(NAVY).font('Lexend-Bold');
   doc.text(fmt(subtotalMes), margin + W * 0.72, y + 2, { width: W * 0.25, align: 'right' as const, lineBreak: false });
-  y += 18;
+  y += 15;
 
   // Deuda vencida
   const deudaVencida = parseFloat(recibo.deuda_vencida) || 0;
   if (deudaVencida > 0) {
-    doc.fillColor(RED).fontSize(9).font('Lexend-Medium');
-    doc.text('(+) Deuda Vencida de Meses Anteriores', margin + 15, y + 2, { lineBreak: false });
+    doc.fillColor(RED).fontSize(8).font('Lexend-Medium');
+    doc.text('(+) Deuda Vencida de Meses Anteriores', margin + 12, y + 2, { lineBreak: false });
     doc.font('Lexend-Bold');
     doc.text(fmt(deudaVencida), margin + W * 0.72, y + 2, { width: W * 0.25, align: 'right' as const, lineBreak: false });
-    y += 18;
+    y += 15;
   }
 
   // Descuento
   const descuento = parseFloat(recibo.descuento) || 0;
   if (descuento > 0) {
-    doc.fillColor(TEAL).fontSize(9).font('Lexend-Medium');
-    doc.text('(-) Saldo a Favor Aplicado', margin + 15, y + 2, { lineBreak: false });
+    doc.fillColor(TEAL).fontSize(8).font('Lexend-Medium');
+    doc.text('(-) Saldo a Favor Aplicado', margin + 12, y + 2, { lineBreak: false });
     doc.font('Lexend-Bold');
     doc.text('-' + fmt(descuento), margin + W * 0.72, y + 2, { width: W * 0.25, align: 'right' as const, lineBreak: false });
-    y += 18;
+    y += 15;
   }
 
-  y += 4;
+  y += 2;
 
   // ═══════════════════════════════════════════════
   // 5. BARRA DE TOTAL
@@ -575,15 +575,15 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   
   // Línea gruesa divisoria solo en la parte derecha
   doc.moveTo(margin + W * 0.5, y).lineTo(margin + W, y).strokeColor(NAVY).lineWidth(2).stroke();
-  y += 12;
+  y += 8;
 
-  doc.fillColor(NAVY).fontSize(11).font('Lexend-Bold');
-  doc.text('TOTAL A PAGAR', margin + W * 0.4, y + 4, { width: W * 0.3, align: 'right' as const, lineBreak: false });
+  doc.fillColor(NAVY).fontSize(10).font('Lexend-Bold');
+  doc.text('TOTAL A PAGAR', margin + W * 0.4, y + 3, { width: W * 0.3, align: 'right' as const, lineBreak: false });
   
-  doc.fillColor(NAVY).fontSize(20).font('Lexend-Bold');
+  doc.fillColor(NAVY).fontSize(18).font('Lexend-Bold');
   doc.text(`S/ ${fmt(total)}`, margin + W * 0.72, y, { width: W * 0.25, align: 'right' as const, lineBreak: false });
   
-  y += 36;
+  y += 28;
 
   // ═══════════════════════════════════════════════
   // 6. FECHAS + HISTORIAL (2 COLUMNAS)
@@ -593,80 +593,81 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   const rightBoxX = margin + leftBoxW + (W * 0.03);
 
   // -- Fechas
-  doc.roundedRect(margin, y, leftBoxW, 90, 6).strokeColor(BORDER).stroke();
+  doc.roundedRect(margin, y, leftBoxW, 76, 5).strokeColor(BORDER).stroke();
   
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-  doc.text('FECHAS IMPORTANTES', margin + 12, y + 8);
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+  doc.text('FECHAS IMPORTANTES', margin + 10, y + 6);
 
-  doc.fillColor(SLATE).fontSize(9).font('Lexend');
-  doc.text('Emisión:', margin + 12, y + 26);
-  doc.font('Lexend-Bold').text(fmtDate(recibo.fecha_emision), margin + 80, y + 26, { lineBreak: false });
+  doc.fillColor(SLATE).fontSize(8).font('Lexend');
+  doc.text('Emisión:', margin + 10, y + 21);
+  doc.font('Lexend-Bold').text(fmtDate(recibo.fecha_emision), margin + 72, y + 21, { lineBreak: false });
 
   doc.fillColor(RED).font('Lexend');
-  doc.text('Vencimiento:', margin + 12, y + 44);
-  doc.font('Lexend-Bold').text(fmtDate(recibo.fecha_vencimiento), margin + 80, y + 44, { lineBreak: false });
+  doc.text('Vencimiento:', margin + 10, y + 36);
+  doc.font('Lexend-Bold').text(fmtDate(recibo.fecha_vencimiento), margin + 72, y + 36, { lineBreak: false });
 
-  const fechaCorte = recibo.fecha_vencimiento ? new Date(new Date(recibo.fecha_vencimiento).getTime() + 86400000) : null;
+  const fechaCorte = recibo.fecha_corte ? new Date(recibo.fecha_corte) : (recibo.fecha_vencimiento ? new Date(new Date(recibo.fecha_vencimiento).getTime() + 86400000) : null);
   doc.fillColor(RED).font('Lexend');
-  doc.text('Corte:', margin + 12, y + 62);
-  doc.font('Lexend-Bold').text(fmtDate(fechaCorte), margin + 80, y + 62, { lineBreak: false });
+  doc.text('Corte:', margin + 10, y + 51);
+  doc.font('Lexend-Bold').text(fmtDate(fechaCorte), margin + 72, y + 51, { lineBreak: false });
 
   // Aviso pequeño
-  doc.fillColor(SLATE_LT).fontSize(6).font('Lexend-Light');
-  doc.text('Pague puntual para evitar corte y recargo.', margin + 12, y + 78);
+  doc.fillColor(SLATE_LT).fontSize(5.5).font('Lexend-Light');
+  doc.text('Pague puntual para evitar corte y recargo.', margin + 10, y + 66);
 
   // -- Historial de consumo (gráfico)
-  doc.roundedRect(rightBoxX, y, rightBoxW, 90, 6).strokeColor(BORDER).stroke();
-  doc.rect(rightBoxX, y, rightBoxW, 20).fill(BG);
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-  doc.text('HISTORIAL DE CONSUMO (kWh)', rightBoxX + 12, y + 7);
+  doc.roundedRect(rightBoxX, y, rightBoxW, 76, 5).strokeColor(BORDER).stroke();
+  doc.rect(rightBoxX, y, rightBoxW, 16).fill(BG);
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+  doc.text('HISTORIAL DE CONSUMO (kWh)', rightBoxX + 10, y + 5);
 
   if (historial.length > 0) {
-    const chartY = y + 25;
-    const chartH = 50;
-    const chartW = rightBoxW - 24;
+    const chartY = y + 20;
+    const chartH = 42;
+    const chartW = rightBoxW - 20;
     const maxVal = Math.max(...historial.map((h: any) => parseFloat(h.consumo_calculado) || 0), 10);
     const barSpacing = chartW / historial.length;
-    const barW = Math.min(barSpacing - 8, 30);
+    const barW = Math.min(barSpacing - 6, 26);
 
     historial.forEach((h: any, i: any) => {
       const val = parseFloat(h.consumo_calculado) || 0;
       const barH = (val / maxVal) * chartH;
-      const bx = rightBoxX + 12 + (i * barSpacing) + (barSpacing - barW) / 2;
+      const bx = rightBoxX + 10 + (i * barSpacing) + (barSpacing - barW) / 2;
       const by = chartY + chartH - barH;
 
       const isLast = i === historial.length - 1;
       doc.rect(bx, by, barW, barH).fill(isLast ? TEAL : '#cbd5e1');
       
-      doc.fillColor(NAVY).fontSize(6).font('Lexend-Bold');
-      doc.text(Math.round(val).toString(), bx - 4, by - 10, { width: barW + 8, align: 'center' as const, lineBreak: false });
+      doc.fillColor(NAVY).fontSize(5.5).font('Lexend-Bold');
+      doc.text(Math.round(val).toString(), bx - 3, by - 8, { width: barW + 6, align: 'center' as const, lineBreak: false });
 
       const mLabel = h.mes_anio ? h.mes_anio.substring(5) : '';
       const monthNames: any = { '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic' };
-      doc.fillColor(SLATE_LT).fontSize(5).font('Lexend');
-      doc.text(monthNames[mLabel] || mLabel, bx - 4, chartY + chartH + 4, { width: barW + 8, align: 'center' as const, lineBreak: false });
+      doc.fillColor(SLATE_LT).fontSize(4.5).font('Lexend');
+      doc.text(monthNames[mLabel] || mLabel, bx - 3, chartY + chartH + 3, { width: barW + 6, align: 'center' as const, lineBreak: false });
     });
   } else {
-    doc.fillColor(SLATE_LT).fontSize(8).font('Lexend');
-    doc.text('Sin datos históricos.', rightBoxX + 12, y + 50);
+    doc.fillColor(SLATE_LT).fontSize(7).font('Lexend');
+    doc.text('Sin datos históricos.', rightBoxX + 10, y + 42);
   }
 
-  y += 102;
+  y += 84;
 
   // ═══════════════════════════════════════════════
   // 7. COMUNICADO
   // ═══════════════════════════════════════════════
-  doc.roundedRect(margin, y, W, 40, 6).fill(BG);
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-  doc.text('COMUNICADO', margin + 12, y + 6);
-  doc.fillColor(SLATE).fontSize(7).font('Lexend');
-  doc.text('Estimado Socio, recuerde que el pago puntual evita el corte del servicio y el cobro de reconexión. Para reclamos acérquese a la oficina administrativa dentro de los primeros 5 días del mes. Conserve este documento como comprobante de su facturación.', margin + 12, y + 18, { width: W - 24 });
-  y += 48;
+  doc.roundedRect(margin, y, W, 28, 4).fill(BG);
+  doc.fillColor(SLATE_LT).fontSize(6).font('Lexend-Medium');
+  doc.text('COMUNICADO', margin + 10, y + 4);
+  doc.fillColor(SLATE).fontSize(6).font('Lexend');
+  doc.text('Estimado Socio, recuerde que el pago puntual evita el corte del servicio y el cobro de reconexión. Para reclamos acérquese a la oficina administrativa dentro de los primeros 5 días del mes. Conserve este documento como comprobante de su facturación.', margin + 10, y + 14, { width: W - 20 });
+  y += 34;
 
   // ═══════════════════════════════════════════════
   // 8. TALÓN DE PAGO (pie con línea de corte)
   // ═══════════════════════════════════════════════
-  let talonY = doc.page.height - 130;
+  // Posicionar talón dinámicamente: máximo entre y actual y la zona segura inferior
+  let talonY = Math.max(y + 4, doc.page.height - 122);
   
   // Línea de corte
   doc.save();
@@ -674,53 +675,54 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   doc.moveTo(margin, talonY).lineTo(doc.page.width - margin, talonY).strokeColor(SLATE_LT).lineWidth(0.5).stroke();
   doc.restore();
   
-  talonY += 10;
-  doc.fillColor(NAVY).fontSize(10).font('Lexend-Bold');
+  talonY += 8;
+  doc.fillColor(NAVY).fontSize(9).font('Lexend-Bold');
   doc.text('TALÓN DE PAGO — PARQUE INDUSTRIAL ANEXO 8', margin, talonY);
 
-  talonY += 18;
+  talonY += 15;
   // Datos del talón en 3 columnas
   const tc1 = margin;
   const tc2 = margin + W * 0.35;
   const tc3 = margin + W * 0.68;
 
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
   doc.text('SOCIO', tc1, talonY);
-  doc.fillColor(NAVY).fontSize(9).font('Lexend-Bold');
-  doc.text(recibo.nombre_razonsocial || '-', tc1, talonY + 11, { width: W * 0.33 });
+  doc.fillColor(NAVY).fontSize(8).font('Lexend-Bold');
+  doc.text(recibo.nombre_razonsocial || '-', tc1, talonY + 10, { width: W * 0.33 });
 
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
   doc.text('Nº RECIBO', tc2, talonY);
-  doc.fillColor(NAVY).fontSize(9).font('Lexend-Bold');
-  doc.text(recibo.numero_comprobante || recibo.id.toString(), tc2, talonY + 11);
+  doc.fillColor(NAVY).fontSize(8).font('Lexend-Bold');
+  doc.text(recibo.numero_comprobante || recibo.id.toString(), tc2, talonY + 10);
   
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-  doc.text('PERIODO', tc2, talonY + 28);
-  doc.fillColor(NAVY).fontSize(9).font('Lexend-Bold');
-  doc.text(`${mes} ${anio}`, tc2, talonY + 39);
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+  doc.text('PERIODO', tc2, talonY + 24);
+  doc.fillColor(NAVY).fontSize(8).font('Lexend-Bold');
+  doc.text(`${mes} ${anio}`, tc2, talonY + 34);
 
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Medium');
-  doc.text('VENCIMIENTO', tc2 + 100, talonY + 28);
-  doc.fillColor(RED).fontSize(9).font('Lexend-Bold');
-  doc.text(fmtDate(recibo.fecha_vencimiento), tc2 + 100, talonY + 39);
+  doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+  doc.text('VENCIMIENTO', tc2 + 90, talonY + 24);
+  doc.fillColor(RED).fontSize(8).font('Lexend-Bold');
+  doc.text(fmtDate(recibo.fecha_vencimiento), tc2 + 90, talonY + 34);
 
   // Monto a pagar
-  doc.roundedRect(tc3, talonY - 4, W * 0.3, 54, 6).fill(TEAL);
-  doc.fillColor(WHITE).fontSize(7).font('Lexend-Medium');
-  doc.text('MONTO A PAGAR', tc3 + 12, talonY + 4);
-  doc.fillColor(WHITE).fontSize(22).font('Lexend-Bold');
-  doc.text(`S/ ${fmt(total)}`, tc3 + 12, talonY + 18);
+  doc.roundedRect(tc3, talonY - 4, W * 0.3, 48, 5).fill(TEAL);
+  doc.fillColor(WHITE).fontSize(6.5).font('Lexend-Medium');
+  doc.text('MONTO A PAGAR', tc3 + 10, talonY + 3);
+  doc.fillColor(WHITE).fontSize(18).font('Lexend-Bold');
+  doc.text(`S/ ${fmt(total)}`, tc3 + 10, talonY + 16);
 
-  // Cuenta bancaria
-  talonY += 60;
-  doc.fillColor(SLATE_LT).fontSize(7).font('Lexend');
-  doc.text('Depositar en BCP — Nº Cta: 191-14302973046 | Conserve su voucher como comprobante.', margin, talonY);
+  // Cuenta bancaria — integrado en la misma línea del talón
+  talonY += 52;
+  doc.roundedRect(margin, talonY - 2, W, 20, 4).fillAndStroke('#fef3c7', AMBER);
+  doc.fillColor('#92400e').fontSize(8.5).font('Lexend-Bold');
+  doc.text(`DEPOSITAR EN: ${cuentaBancaria || 'BCP — Nº Cta: 191-14302973046'} | Conserve su voucher.`, margin + 8, talonY + 3, { align: 'center', width: W - 16 });
 };
 // -------------------------------------------------------
 // GENERAR PDF MASIVO DE RECIBOS (V2)
 // -------------------------------------------------------
 export class PdfService {
-    constructor(private reciboRepo: ReciboRepository, private auditoriaRepo: AuditoriaRepository, private pagoRepo: PagoRepository, private usuarioRepo: UsuarioRepository) {}
+    constructor(private reciboRepo: ReciboRepository, private auditoriaRepo: AuditoriaRepository, private pagoRepo: PagoRepository, private usuarioRepo: UsuarioRepository, private db: Database) {}
 
     public buildReciboPdf = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
           const id = Number(req.params.id);
@@ -733,7 +735,7 @@ export class PdfService {
               return res.status(403).json({ error: 'No tienes permisos para ver este recibo' });
             }
 
-            const historial = await this.reciboRepo.findHistorialConsumo(recibo.usuario_id, 7, recibo.periodo_inicio);
+            const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 7, recibo.periodo_inicio);
 
             const doc = new PDFDocument({ size: 'A4', margin: 40 });
 
@@ -987,7 +989,7 @@ export class PdfService {
 
             // Now render rows
             if (cargoFijoVal > 0 && parseFloat(recibo.cargo_fijo) > 0) {
-              drawRow('Cargo Fijo (Sin Medidor)', null, parseFloat(recibo.cargo_fijo));
+              drawRow('Cargo Fijo Mensual', null, parseFloat(recibo.cargo_fijo));
             } else {
               drawRow('Consumo Energía Activa', tarifaKwh, costoConsumo);
               
@@ -1073,10 +1075,10 @@ export class PdfService {
             
             // Textos de la cuenta
             doc.fillColor('#ffffff').fontSize(10).font('Lexend-Medium');
-            doc.text('DEPÓSITOS A LA CUENTA BCP', margin + 55, finalY + 12);
+            doc.text('DEPÓSITOS A LA CUENTA', margin + 55, finalY + 12);
             
-            doc.fillColor(YELLOW).fontSize(16).font('Lexend-Bold');
-            doc.text('Nº CTA: 191-14302973046', margin + 55, finalY + 26);
+            doc.fillColor(YELLOW).fontSize(12).font('Lexend-Bold');
+            doc.text(cuentaBancaria || 'BCP: 191-14302973046', margin + 55, finalY + 26);
             
             // Disclaimer
             doc.fillColor('#ffffff').fontSize(9).font('Lexend');
@@ -1100,7 +1102,7 @@ export class PdfService {
               return res.status(403).json({ error: 'No tienes permisos para ver este recibo' });
             }
 
-            const historial = await this.reciboRepo.findHistorialConsumo(recibo.usuario_id, 7, recibo.periodo_inicio);
+            const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 7, recibo.periodo_inicio);
 
             const doc = new PDFDocument({ size: 'A4', margin: 30 });
 
@@ -1115,7 +1117,9 @@ export class PdfService {
             doc.pipe(res);
 
             const logoPath = path.join(__dirname, '../assets/logo.png');
-            drawReciboLayoutV2(doc, recibo, historial, logoPath);
+            const [configRows]: any = await this.db.query('SELECT cuenta_bancaria FROM configuracion LIMIT 1');
+            const cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
+            drawReciboLayoutV2(doc, recibo, historial, logoPath, cuentaBancaria);
             doc.end();
           } catch (error: any) {
             console.error('Error al generar PDF V2 del recibo:', error);
@@ -1131,7 +1135,7 @@ export class PdfService {
             const recibo = await this.reciboRepo.findByIdCompleto(id);
             if (!recibo) return res.status(404).json({ error: 'Recibo no encontrado' });
 
-            const historial = await this.reciboRepo.findHistorialConsumo(recibo.usuario_id, 7, recibo.periodo_inicio);
+            const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 7, recibo.periodo_inicio);
 
             const doc = new PDFDocument({ size: 'A4', margin: 32 });
 
@@ -1147,7 +1151,9 @@ export class PdfService {
             doc.pipe(res);
 
             const logoPath = path.join(__dirname, '../assets/logo.png');
-            drawReciboLayoutV3(doc, recibo, historial, logoPath);
+            const [configRows]: any = await this.db.query('SELECT cuenta_bancaria FROM configuracion LIMIT 1');
+            const cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
+            drawReciboLayoutV3(doc, recibo, historial, logoPath, cuentaBancaria);
             doc.end();
 
             // Registrar auditoría
@@ -1176,13 +1182,14 @@ export class PdfService {
               return res.status(404).json({ error: 'No se encontraron recibos para exportar.' });
             }
 
-            const doc = new PDFDocument({ size: 'A4', margin: 30, autoFirstPage: false });
+            const doc = new PDFDocument({ size: 'A4', margin: 32, autoFirstPage: false });
 
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', `attachment; filename=recibos_masivos_${filters.periodo || 'todos'}.pdf`);
             
             const fontPath = path.join(__dirname, '../fonts');
             doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
+            doc.registerFont('Lexend-Light', path.join(fontPath, 'Lexend-Light.ttf'));
             doc.registerFont('Lexend-Medium', path.join(fontPath, 'Lexend-Medium.ttf'));
             doc.registerFont('Lexend-Bold', path.join(fontPath, 'Lexend-Bold.ttf'));
 
@@ -1190,15 +1197,18 @@ export class PdfService {
             
             const logoPath = path.join(__dirname, '../assets/logo.png');
 
-            const usuarioIds = [...new Set(recibos.map((r: any) => r.usuario_id))];
-            const historiales = await this.reciboRepo.findHistorialConsumoMultiple(usuarioIds);
+            const medidorIds = [...new Set(recibos.map((r: any) => r.medidor_id).filter(Boolean))];
+            const historiales = await this.reciboRepo.findHistorialConsumoMultiple(medidorIds);
+
+            const [configRows]: any = await this.db.query('SELECT cuenta_bancaria FROM configuracion LIMIT 1');
+            const cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
 
             for (let i = 0; i < recibos.length; i++) {
               const recibo = recibos[i];
-              const historial = historiales[recibo.usuario_id] || [];
+              const historial = historiales[recibo.medidor_id] || [];
 
-              doc.addPage({ size: 'A4', margin: 30 });
-              drawReciboLayoutV2(doc, recibo, historial, logoPath);
+              doc.addPage({ size: 'A4', margin: 32 });
+              drawReciboLayoutV3(doc, recibo, historial, logoPath, cuentaBancaria);
             }
 
             doc.end();

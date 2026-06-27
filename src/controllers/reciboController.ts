@@ -112,7 +112,7 @@ export class ReciboController {
           }
         };
     public generarReciboIndividual = async (req: Request<{}, any, IGenerarReciboIndividualBody>, res: Response): Promise<any> => {
-          const { periodo_id, usuario_id } = req.body;
+          const { periodo_id, usuario_id, medidor_id } = req.body as any;
           const admin_id = req.user.id;
 
           if (!periodo_id || !usuario_id) {
@@ -120,7 +120,7 @@ export class ReciboController {
           }
 
           try {
-            const message = await this.reciboService.generarIndividual(periodo_id, usuario_id, admin_id);
+            const message = await this.reciboService.generarIndividual(periodo_id, usuario_id, admin_id, medidor_id);
             res.json({ message });
           } catch (error: any) {
             console.error('Error al generar recibo individual:', error);
@@ -184,7 +184,7 @@ export class ReciboController {
               return res.status(403).json({ error: 'No tienes permisos para ver este recibo' });
             }
 
-            const historial = await this.reciboRepo.findHistorialConsumo(recibo.usuario_id, 6, recibo.periodo_inicio);
+            const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 6, recibo.periodo_inicio);
             const pagos_historial = await this.pagoRepo.findByRecibo(id);
             
             res.json({ recibo, historial, pagos_historial });

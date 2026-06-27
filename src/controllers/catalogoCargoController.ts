@@ -6,6 +6,7 @@ interface ICreateCargoBody {
   descripcion: string;
   monto_defecto: number;
   es_activo?: boolean;
+  es_global?: boolean;
   periodos_ids?: number[];
 }
 
@@ -14,6 +15,7 @@ interface IUpdateCargoBody {
   descripcion?: string;
   monto_defecto?: number;
   es_activo?: boolean;
+  es_global?: boolean;
   periodos_ids?: number[];
 }
 
@@ -45,7 +47,7 @@ export class CatalogoCargoController {
           }
         };
     public create = async (req: Request<{}, any, ICreateCargoBody>, res: Response): Promise<any> => {
-          const { tipo, descripcion, monto_defecto, es_activo, periodos_ids } = req.body;
+          const { tipo, descripcion, monto_defecto, es_activo, es_global, periodos_ids } = req.body;
           if (!tipo || !descripcion || monto_defecto === undefined) {
             res.status(400).json({ error: 'Faltan campos obligatorios' });
             return;
@@ -53,7 +55,7 @@ export class CatalogoCargoController {
           
           try {
             const id = await this.catalogoRepo.create(
-              { tipo, descripcion, monto_defecto, es_activo: es_activo !== false }, 
+              { tipo, descripcion, monto_defecto, es_activo: es_activo !== false, es_global: es_global === true }, 
               periodos_ids || []
             );
             res.status(201).json({ message: 'Cargo creado exitosamente', id });
@@ -64,12 +66,12 @@ export class CatalogoCargoController {
         };
     public update = async (req: Request<{ id: string }, any, IUpdateCargoBody>, res: Response): Promise<any> => {
           const { id } = req.params;
-          const { tipo, descripcion, monto_defecto, es_activo, periodos_ids } = req.body;
+          const { tipo, descripcion, monto_defecto, es_activo, es_global, periodos_ids } = req.body;
           
           try {
             await this.catalogoRepo.update(
               Number(id), 
-              { tipo, descripcion, monto_defecto, es_activo }, 
+              { tipo, descripcion, monto_defecto, es_activo, es_global: es_global === true }, 
               periodos_ids
             );
             res.json({ message: 'Cargo actualizado exitosamente' });

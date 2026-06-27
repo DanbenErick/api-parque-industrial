@@ -140,6 +140,90 @@ export class UsuarioController {
             res.status(500).json({ error: 'Error interno del servidor' });
           }
         };
+
+    public createUsuariosBulk = async (req: Request<{}, any, any[]>, res: Response): Promise<any> => {
+          const usuarios = req.body;
+          
+          if (!Array.isArray(usuarios) || usuarios.length === 0) {
+            return res.status(400).json({ error: 'El cuerpo de la petición debe ser un arreglo de usuarios no vacío.' });
+          }
+
+          const successful = [];
+          const failed = [];
+          let sociosCreadosCount = 0;
+          let medidoresCreadosCount = 0;
+
+          for (let i = 0; i < usuarios.length; i++) {
+            const u = usuarios[i];
+            try {
+              if (!u.documento_identidad || !u.nombre_razonsocial || !u.clave_acceso || !u.cargo_representante || !u.telefono || !u.correo) {
+                throw new Error('Faltan campos obligatorios en el registro.');
+              }
+
+              if (String(u.documento_identidad).length !== 8 && String(u.documento_identidad).length !== 11) {
+                throw new Error('El documento de identidad debe tener 8 o 11 dígitos.');
+              }
+
+              if (String(u.telefono).trim().length !== 9) {
+                throw new Error('El número de teléfono debe tener exactamente 9 dígitos.');
+              }
+
+              const saltRounds = 10;
+              
+              let targetUsuarioId = null;
+
+              try {
+                const existingUser = await this.usuarioRepo.findByDocumento(String(u.documento_identidad));
+                
+                if (existingUser) {
+                  // El usuario ya existe, simplemente usamos su ID para añadir el medidor
+                  targetUsuarioId = existingUser.id;
+                } else {
+                  // El usuario no existe, lo creamos
+                  const hashedPassword = await bcrypt.hash(String(u.clave_acceso), saltRounds);
+                  targetUsuarioId = await this.usuarioRepo.create({
+                    rol_id: 3, // Siempre 3 (Socio/Miembro) para este bulk
+                    documento_identidad: String(u.documento_identidad),
+                    nombre_razonsocial: u.nombre_razonsocial,
+                    clave_acceso: hashedPassword,
+                    cargo_representante: u.cargo_representante,
+                    telefono: String(u.telefono),
+                    correo: u.correo,
+                    direccion: u.medidor_direccion || 'Sin dirección',
+                    actividad_rubro: u.actividad_rubro || 'General'
+                  });
+                  sociosCreadosCount++;
+                }
+              } catch (createError: any) {
+                throw createError;
+              }
+
+              if (targetUsuarioId && u.medidor_num_serie && String(u.medidor_num_serie).trim() !== '') {
+                await this.medidorRepo.create({
+                  usuario_id: targetUsuarioId,
+                  num_serie: String(u.medidor_num_serie),
+                  tipo: u.medidor_tipo || 'Normal',
+                  direccion: u.medidor_direccion || 'Sin dirección',
+                  operativo: true
+                });
+                medidoresCreadosCount++;
+              }
+
+              successful.push({ row: i + 2, documento: u.documento_identidad, nombre: u.nombre_razonsocial });
+            } catch (error: any) {
+              let errorMsg = error.message;
+              if (error.code === 'ER_DUP_ENTRY') {
+                if (error.sqlMessage.includes('uq_usuario_correo')) errorMsg = 'El correo electrónico ya existe.';
+                else if (error.sqlMessage.includes('documento_identidad')) errorMsg = 'El documento de identidad ya existe.';
+                else if (error.sqlMessage.includes('num_serie')) errorMsg = 'El medidor ya está registrado.';
+                else errorMsg = 'Registro duplicado.';
+              }
+              failed.push({ row: i + 2, documento: u.documento_identidad, error: errorMsg });
+            }
+          }
+
+          res.status(200).json({ successful, failed, sociosCreados: sociosCreadosCount, medidoresCreados: medidoresCreadosCount });
+        };
     public updateUsuario = async (req: Request<{ id: string }, any, IUpdateUsuarioBody>, res: Response): Promise<any> => {
           const id = Number(req.params.id);
           

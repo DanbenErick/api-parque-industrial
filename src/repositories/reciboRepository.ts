@@ -15,10 +15,12 @@ export class ReciboRepository {
            r.subtotal, r.igv, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
            (r.total - COALESCE(pagos.total_pagado, 0)) as saldo_pendiente,
            u.nombre_razonsocial as socio, u.documento_identidad, u.telefono,
-           pf.mes_anio as periodo
+           pf.mes_anio as periodo, m.num_serie as medidor_num_serie
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+    LEFT JOIN lectura l ON r.lectura_id = l.id
+    LEFT JOIN medidor m ON l.medidor_id = m.id
     LEFT JOIN (
       SELECT recibo_id, SUM(monto_pagado) as total_pagado 
       FROM pago 
@@ -68,6 +70,8 @@ export class ReciboRepository {
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+    LEFT JOIN lectura l ON r.lectura_id = l.id
+    LEFT JOIN medidor m ON l.medidor_id = m.id
     LEFT JOIN (
       SELECT recibo_id, SUM(monto_pagado) as total_pagado 
       FROM pago 
@@ -110,9 +114,11 @@ export class ReciboRepository {
     public findByUsuario = async (usuarioId: any) => {
           const [rows] = await this.db.query(`
     SELECT r.id, r.numero_comprobante, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
-           pf.mes_anio as periodo
+           pf.mes_anio as periodo, m.num_serie as medidor_num_serie
     FROM recibo r
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+    LEFT JOIN lectura l ON r.lectura_id = l.id
+    LEFT JOIN medidor m ON l.medidor_id = m.id
     WHERE r.usuario_id = ? AND r.deleted_at IS NULL
     ORDER BY r.fecha_vencimiento DESC
   `, [usuarioId]);
@@ -127,21 +133,21 @@ export class ReciboRepository {
            (r.total - COALESCE(pagos.total_pagado, 0)) as saldo_pendiente,
            u.id as usuario_id, u.nombre_razonsocial, u.documento_identidad, u.direccion as socio_direccion, u.correo as socio_email,
            u.direccion, u.telefono, u.correo,
-           m.num_serie as num_medidor,
+           m.num_serie as num_medidor, m.id as medidor_id,
            l.lectura_actual, l.lectura_anterior, l.consumo_calculado, l.lectura_actual_punta, l.lectura_anterior_punta, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, l.fecha_registro,
            pf.mes_anio, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.tarifa_mantenimiento_normal, pf.tarifa_mantenimiento_tiempo_real, pf.factor_multiplicador,
-           pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin
+           pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin, pf.fecha_corte
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+    LEFT JOIN lectura l ON r.lectura_id = l.id
+    LEFT JOIN medidor m ON l.medidor_id = m.id
     LEFT JOIN (
       SELECT recibo_id, SUM(monto_pagado) as total_pagado 
       FROM pago 
       WHERE deleted_at IS NULL 
       GROUP BY recibo_id
     ) pagos ON pagos.recibo_id = r.id
-    LEFT JOIN medidor m ON m.usuario_id = u.id AND m.deleted_at IS NULL
-    LEFT JOIN lectura l ON l.medidor_id = m.id AND l.periodo_id = pf.id AND l.deleted_at IS NULL
     WHERE r.id = ? AND r.deleted_at IS NULL
     LIMIT 1
   `, [id]);
@@ -153,15 +159,14 @@ export class ReciboRepository {
           
           return recibo;
         };
-    public findHistorialConsumo = async (usuarioId: any, limit: number = 6, fechaMaxima: any = null) => {
+    public findHistorialConsumo = async (medidorId: any, limit: number = 6, fechaMaxima: any = null) => {
           let query = `
     SELECT l.consumo_calculado, pf.mes_anio
     FROM lectura l
-    INNER JOIN medidor m ON l.medidor_id = m.id
     INNER JOIN periodo_facturacion pf ON l.periodo_id = pf.id
-    WHERE m.usuario_id = ? AND l.deleted_at IS NULL
+    WHERE l.medidor_id = ? AND l.deleted_at IS NULL
   `;
-          const params: any[] = [usuarioId];
+          const params: any[] = [medidorId];
           if (fechaMaxima) {
             query += ` AND pf.fecha_inicio <= ?`;
             params.push(fechaMaxima);
@@ -172,32 +177,31 @@ export class ReciboRepository {
           const [rows]: any = await this.db.query(query, params);
           return rows.reverse();
         };
-    public findHistorialConsumoMultiple = async (usuarioIds: any[], limit: number = 7) => {
-          if (!usuarioIds || usuarioIds.length === 0) return {};
+    public findHistorialConsumoMultiple = async (medidorIds: any[], limit: number = 7) => {
+          if (!medidorIds || medidorIds.length === 0) return {};
           
-          const placeholders = usuarioIds.map(() => '?').join(',');
+          const placeholders = medidorIds.map(() => '?').join(',');
           
           const query = `
     WITH RankedReadings AS (
-      SELECT m.usuario_id, l.consumo_calculado, pf.mes_anio,
-             ROW_NUMBER() OVER(PARTITION BY m.usuario_id ORDER BY pf.fecha_inicio DESC) as rn
+      SELECT l.medidor_id, l.consumo_calculado, pf.mes_anio,
+             ROW_NUMBER() OVER(PARTITION BY l.medidor_id ORDER BY pf.fecha_inicio DESC) as rn
       FROM lectura l
-      INNER JOIN medidor m ON l.medidor_id = m.id
       INNER JOIN periodo_facturacion pf ON l.periodo_id = pf.id
-      WHERE m.usuario_id IN (${placeholders}) AND l.deleted_at IS NULL
+      WHERE l.medidor_id IN (${placeholders}) AND l.deleted_at IS NULL
     )
     SELECT * FROM RankedReadings WHERE rn <= ?
   `;
           
-          const params = [...usuarioIds, limit];
+          const params = [...medidorIds, limit];
           const [rows]: any = await this.db.query(query, params);
           
           const result: any = {};
           rows.forEach((row: any) => {
-            if (!result[row.usuario_id]) {
-              result[row.usuario_id] = [];
+            if (!result[row.medidor_id]) {
+              result[row.medidor_id] = [];
             }
-            result[row.usuario_id].push({
+            result[row.medidor_id].push({
               consumo_calculado: row.consumo_calculado,
               mes_anio: row.mes_anio
             });
@@ -220,21 +224,21 @@ export class ReciboRepository {
            (r.total - COALESCE(pagos.total_pagado, 0)) as saldo_pendiente,
            u.id as usuario_id, u.nombre_razonsocial, u.documento_identidad, u.direccion as socio_direccion, u.correo as socio_email,
            u.direccion, u.telefono, u.correo,
-           m.num_serie as num_medidor,
+           m.num_serie as num_medidor, m.id as medidor_id,
            l.lectura_actual, l.lectura_anterior, l.consumo_calculado, l.fecha_registro,
            pf.mes_anio, pf.tarifa_kwh, pf.tarifa_mantenimiento_normal, pf.tarifa_mantenimiento_tiempo_real, pf.factor_multiplicador,
-           pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin
+           pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin, pf.fecha_corte
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+    LEFT JOIN lectura l ON r.lectura_id = l.id
+    LEFT JOIN medidor m ON l.medidor_id = m.id
     LEFT JOIN (
       SELECT recibo_id, SUM(monto_pagado) as total_pagado 
       FROM pago 
       WHERE deleted_at IS NULL 
       GROUP BY recibo_id
     ) pagos ON pagos.recibo_id = r.id
-    LEFT JOIN medidor m ON m.usuario_id = u.id AND m.deleted_at IS NULL
-    LEFT JOIN lectura l ON l.medidor_id = m.id AND l.periodo_id = pf.id AND l.deleted_at IS NULL
     WHERE r.deleted_at IS NULL
   `;
           
@@ -271,10 +275,11 @@ export class ReciboRepository {
            r.cargo_fijo, r.cargo_corte, r.multa_manipulacion, r.multa_reconexion, r.instalacion_medidor,
            r.deuda_vencida, r.descuento, r.motivo_descuento, r.subtotal, r.igv, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
            u.nombre_razonsocial as socio, u.documento_identidad,
-           pf.mes_anio as periodo
+           pf.mes_anio as periodo, m.num_serie as medidor_num_serie
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+    LEFT JOIN lectura l ON r.lectura_id = l.id
     LEFT JOIN medidor m ON m.usuario_id = u.id AND m.deleted_at IS NULL
     WHERE r.deleted_at IS NULL AND m.id IS NULL AND u.rol_id = 3
   `;

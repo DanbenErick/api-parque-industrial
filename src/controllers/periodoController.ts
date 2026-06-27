@@ -5,6 +5,11 @@ interface ICreatePeriodoBody {
   mes_anio: string;
   fecha_inicio: string | Date;
   fecha_fin: string | Date;
+  fecha_emision_recibo?: string | Date;
+  fecha_vencimiento?: string | Date;
+  fecha_corte?: string | Date;
+  fecha_inicio_lectura?: string | Date;
+  fecha_fin_lectura?: string | Date;
   estado?: string;
 }
 
@@ -12,6 +17,11 @@ interface IUpdatePeriodoBody {
   mes_anio?: string;
   fecha_inicio?: string | Date;
   fecha_fin?: string | Date;
+  fecha_emision_recibo?: string | Date;
+  fecha_vencimiento?: string | Date;
+  fecha_corte?: string | Date;
+  fecha_inicio_lectura?: string | Date;
+  fecha_fin_lectura?: string | Date;
   estado?: string;
 }
 
@@ -27,6 +37,16 @@ export class PeriodoController {
             res.status(500).json({ error: 'Error interno del servidor' });
           }
         };
+    public getStats = async (req: Request<{ mes_anio: string }>, res: Response): Promise<any> => {
+          const { mes_anio } = req.params;
+          try {
+            const stats = await this.periodoRepo.getStats(mes_anio);
+            res.json(stats);
+          } catch (error) {
+            console.error('Error al obtener stats del periodo:', error);
+            res.status(500).json({ error: 'Error interno del servidor' });
+          }
+        };
     public createPeriodo = async (req: Request<{}, any, ICreatePeriodoBody>, res: Response): Promise<any> => {
           try {
             const { mes_anio } = req.body;
@@ -37,7 +57,12 @@ export class PeriodoController {
               return res.status(400).json({ error: 'Ya existe un periodo creado para este mes y año.' });
             }
 
-            const insertId = await this.periodoRepo.create(req.body);
+            const payload = {
+              ...req.body,
+              created_by: req.user?.id
+            };
+
+            const insertId = await this.periodoRepo.create(payload);
             res.status(201).json({ message: 'Período creado exitosamente', id: insertId });
           } catch (error) {
             if ((error as any).code === 'ER_DUP_ENTRY') {
