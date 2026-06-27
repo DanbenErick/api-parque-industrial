@@ -75,6 +75,9 @@ export class AuthController {
               rol_id: usuario.rol_id,
               nombre_rol: usuario.nombre_rol,
               nombre_razonsocial: usuario.nombre_razonsocial,
+              cargo_representante: usuario.cargo_representante,
+              telefono: usuario.telefono,
+              correo: usuario.correo,
               rutas: usuario.rutas_json,
               permisos: usuario.permisos_json
             };
