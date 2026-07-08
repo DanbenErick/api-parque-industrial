@@ -46,8 +46,10 @@ export class ExcelService {
             const worksheet = workbook.addWorksheet('Reporte de Facturación');
 
             worksheet.columns = [
-              { header: 'Nº COMPROBANTE', key: 'comprobante', width: 20 },
-              { header: 'SOCIO / SOCIO', key: 'socio', width: 35 },
+              { header: 'N° COMPROBANTE', key: 'comprobante', width: 20 },
+              { header: 'SOCIO', key: 'socio', width: 35 },
+              { header: 'MEDIDOR', key: 'medidor', width: 20 },
+              { header: 'TIPO MEDIDOR', key: 'tipo_medidor', width: 20 },
               { header: 'PERIODO', key: 'periodo', width: 15 },
               { header: 'FECHA EMISIÓN', key: 'fecha_emision', width: 18 },
               { header: 'FECHA VENCIMIENTO', key: 'fecha_vencimiento', width: 20 },
@@ -75,6 +77,8 @@ export class ExcelService {
               worksheet.addRow({
                 comprobante: r.numero_comprobante,
                 socio: r.socio,
+                medidor: r.medidor_num_serie || 'Sin medidor',
+                tipo_medidor: r.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (r.medidor_tipo || '-'),
                 periodo: r.periodo,
                 fecha_emision: r.fecha_emision ? new Date(r.fecha_emision).toLocaleDateString('es-PE') : '-',
                 fecha_vencimiento: r.fecha_vencimiento ? new Date(r.fecha_vencimiento).toLocaleDateString('es-PE') : '-',
@@ -135,6 +139,8 @@ export class ExcelService {
             worksheet.columns = [
               { header: 'SOCIO / EMPRESA', key: 'socio', width: 35 },
               { header: 'RUC/DNI', key: 'documento', width: 15 },
+              { header: 'MEDIDOR', key: 'medidor', width: 18 },
+              { header: 'TIPO MEDIDOR', key: 'tipo_medidor', width: 18 },
               { header: 'PERIODO', key: 'periodo', width: 15 },
               { header: 'ESTADO', key: 'estado', width: 12 },
               { header: 'CONSUMO', key: 'consumo', width: 12 },
@@ -210,19 +216,23 @@ export class ExcelService {
                 if (parseFloat(r.descuento || 0) > 0) lineasDetalle.push(`• DESCUENTO: -S/ ${parseFloat(r.descuento).toFixed(2)}`);
                 if (parseFloat(r.igv || 0) > 0) lineasDetalle.push(`• IGV (18%): S/ ${parseFloat(r.igv).toFixed(2)}`);
 
+                const strDetalle = lineasDetalle.join('\n');
                 const row = worksheet.addRow({
                   socio: grupo.socio,
                   documento: grupo.documento,
+                  medidor: r.medidor_num_serie || 'Sin medidor',
+                  tipo_medidor: r.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (r.medidor_tipo || '-'),
                   periodo: r.mes_anio,
                   estado: r.estado,
                   consumo: `${parseFloat(r.consumo_calculado || 0).toFixed(2)} kWh`,
-                  detalle: lineasDetalle.join('\n'),
+                  detalle: strDetalle,
                   total_deuda: '' // Se llenará en la celda combinada
                 });
 
                 row.getCell('detalle').alignment = { wrapText: true, vertical: 'middle' };
                 row.getCell('socio').alignment = { vertical: 'middle' };
                 row.getCell('documento').alignment = { vertical: 'middle', horizontal: 'center' };
+                row.getCell('medidor').alignment = { vertical: 'middle', horizontal: 'center' };
                 row.getCell('periodo').alignment = { vertical: 'middle', horizontal: 'center' };
                 row.getCell('estado').alignment = { vertical: 'middle', horizontal: 'center' };
                 row.getCell('consumo').alignment = { vertical: 'middle', horizontal: 'center' };
@@ -286,6 +296,7 @@ export class ExcelService {
             wsGeneral.columns = [
               { header: 'FECHA PAGO', key: 'fecha_pago', width: 20 },
               { header: 'SOCIO / SOCIO', key: 'socio', width: 40 },
+              { header: 'MEDIDOR', key: 'medidor', width: 20 },
               { header: 'PERIODO FACTURADO', key: 'periodo', width: 20 },
               { header: 'Nº COMPROBANTE', key: 'comprobante', width: 20 },
               { header: 'MÉTODO', key: 'metodo', width: 15 },
@@ -304,6 +315,7 @@ export class ExcelService {
               wsGeneral.addRow({
                 fecha_pago: new Date(p.fecha_pago).toLocaleString('es-PE'),
                 socio: p.socio,
+                medidor: p.medidores_str || 'Sin medidor',
                 periodo: p.periodo,
                 comprobante: p.numero_comprobante,
                 metodo: p.metodo_pago,
@@ -397,6 +409,7 @@ export class ExcelService {
               { header: 'Teléfono', key: 'telefono', width: 15 },
               { header: 'Correo', key: 'correo', width: 30 },
               { header: 'Dirección', key: 'direccion', width: 35 },
+              { header: 'Medidor(es)', key: 'medidores_str', width: 25 },
               { header: 'Estado', key: 'estado', width: 15 },
             ];
 
@@ -413,6 +426,16 @@ export class ExcelService {
 
             // Añadir filas
             usuarios.forEach((u, index) => {
+              let medidoresStr = 'Sin Medidor';
+              if (u.medidores) {
+                try {
+                  const meds = typeof u.medidores === 'string' ? JSON.parse(u.medidores) : u.medidores;
+                  if (meds && meds.length > 0) {
+                    medidoresStr = meds.map((m: any) => `${m.num_serie} (${m.tipo})`).join(', ');
+                  }
+                } catch(e) {}
+              }
+
               const row = sheet.addRow({
                 id: u.id,
                 documento_identidad: u.documento_identidad,
@@ -422,16 +445,17 @@ export class ExcelService {
                 telefono: u.telefono || '-',
                 correo: u.correo || '-',
                 direccion: u.direccion || '-',
+                medidores_str: medidoresStr,
                 estado: u.es_activo ? 'Activo' : 'Inactivo'
               });
 
               row.height = 20;
               row.eachCell((cell, colNumber) => {
-                cell.alignment = { vertical: 'middle', horizontal: colNumber === 1 || colNumber === 9 ? 'center' : 'left' };
+                cell.alignment = { vertical: 'middle', horizontal: colNumber === 1 || colNumber === 10 ? 'center' : 'left' };
                 cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
                 
                 // Colorear el estado
-                if (colNumber === 9) {
+                if (colNumber === 10) {
                   cell.font.color = { argb: u.es_activo ? 'FF16A34A' : 'FFDC2626' }; // Verde o Rojo
                   cell.font.bold = true;
                 }

@@ -157,6 +157,15 @@ export class UsuarioRepository {
           );
           return result.affectedRows;
         };
+    
+    public updatePassword = async (id: number, hashedPass: string): Promise<number> => {
+      const [result]: any = await this.db.query(
+        'UPDATE usuario SET clave_acceso = ? WHERE id = ? AND deleted_at IS NULL',
+        [hashedPass, id]
+      );
+      return result.affectedRows;
+    };
+
     public softDelete = async (id: number): Promise<number> => {
           const [result]: any = await this.db.query(
             'UPDATE usuario SET deleted_at = CURRENT_TIMESTAMP, es_activo = FALSE WHERE id = ?',

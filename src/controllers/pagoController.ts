@@ -33,6 +33,23 @@ export class PagoController {
             res.status(500).json({ error: 'Error interno del servidor' });
           }
         };
+
+    public getPagosByUsuario = async (req: Request<{ usuarioId: string }>, res: Response): Promise<any> => {
+      const { usuarioId } = req.params;
+
+      // Un socio solo puede ver sus propios pagos
+      if (req.user?.nombre_rol === 'Socio' && req.user.id !== parseInt(usuarioId)) {
+        return res.status(403).json({ error: 'No tienes permisos para ver estos pagos' });
+      }
+
+      try {
+        const pagos = await this.pagoRepo.findByUsuario(parseInt(usuarioId));
+        res.json(pagos);
+      } catch (error: any) {
+        console.error('Error al obtener pagos por usuario:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+      }
+    };
     public registrarPago = async (req: Request<{}, any, IRegistrarPagoBody>, res: Response): Promise<any> => {
           try {
             // req.user.id is passed to the repo to be set as @current_user_id for SQL triggers
@@ -60,6 +77,28 @@ export class PagoController {
         };
     public exportResumenPagosExcel = async (req: Request<{}, any, any, IGetPagosQuery>, res: Response): Promise<any> => {
           return this.excelService.buildResumenPagosExcel(req, res);
+        };
+
+    public exportTicketPdf = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
+          return this.pdfService.buildTicketPagoPdf(req, res);
+        };
+
+    public exportAllTicketsPdf = async (req: Request<{}, any, any, IGetPagosQuery>, res: Response): Promise<any> => {
+          return this.pdfService.buildAllTicketsPagoPdf(req, res);
+        };
+
+    public anularPago = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
+          try {
+            const pagoId = parseInt(req.params.id);
+            await this.pagoRepo.anularPagoConTransaccion(pagoId, req.user?.id || 0);
+            res.json({ message: 'Pago anulado exitosamente' });
+          } catch (error: any) {
+            if (error.message === 'NOT_FOUND') {
+              return res.status(404).json({ error: 'Pago no encontrado o ya anulado' });
+            }
+            console.error('Error al anular pago:', error);
+            res.status(500).json({ error: 'Error interno del servidor al anular el pago' });
+          }
         };
 }
 

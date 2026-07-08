@@ -42,7 +42,7 @@ export class Database {
         connectionLimit: 10,
         queueLimit: 0,
         multipleStatements: true,
-        flags: 'FOUND_ROWS'
+        flags: ['FOUND_ROWS']
       });
 
       const poolConn = await this.pool.getConnection();
@@ -50,6 +50,7 @@ export class Database {
       poolConn.release();
     } catch (err: any) {
       this.logger.error(`❌ Error al conectar o inicializar MySQL: ${err.message}`);
+      process.exit(1);
     }
   }
 

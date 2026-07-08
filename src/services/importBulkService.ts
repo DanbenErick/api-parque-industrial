@@ -183,12 +183,12 @@ export class ImportBulkService {
             const factor = parseFloat(periodo.factor_multiplicador) || 1;
             cargo_energia = consumo * tarifa_kwh * factor;
 
-            const tarifa_mant = medidor_tipo === TipoMedidor.TIEMPO_REAL
+            const tarifa_mant = medidor_tipo === TipoMedidor.HORA_PUNTA
               ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real)
               : parseFloat(periodo.tarifa_mantenimiento_normal);
             cargo_mantenimiento = tarifa_mant || 0;
 
-            if (medidor_tipo === TipoMedidor.TIEMPO_REAL) {
+            if (medidor_tipo === TipoMedidor.HORA_PUNTA) {
               const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
               cargo_energia_punta = consumo_punta * tarifa_kwh_punta * factor;
 

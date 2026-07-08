@@ -148,59 +148,7 @@ app.use(cors({origin: '*' }));
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Custom middleware para loggear params, body y responses
-app.use((req: Request, res: Response, next) => {
-  const originalJson = res.json;
-  const originalSend = res.send;
-  let responseBody: any;
-
-  res.json = function (body) {
-    responseBody = body;
-    return originalJson.apply(this, arguments as any);
-  };
-
-  res.send = function (body) {
-    if (!responseBody) {
-       responseBody = body;
-    }
-    return originalSend.apply(this, arguments as any);
-  };
-
-  res.on('finish', () => {
-    // Evitar loggear demasiada información para rutas preflight de CORS
-    if (req.method === 'OPTIONS') return;
-    
-    console.log(`\n=== [${new Date().toLocaleString()}] ${req.method} ${req.originalUrl} ===`);
-    if (Object.keys(req.query).length) console.log('Query:', JSON.stringify(req.query));
-    if (Object.keys(req.params).length) console.log('Params:', JSON.stringify(req.params));
-    if (req.body && Object.keys(req.body).length) {
-      // Ocultar contraseñas en los logs
-      const safeBody = { ...req.body };
-      if (safeBody.clave_acceso) safeBody.clave_acceso = '***';
-      if (safeBody.password) safeBody.password = '***';
-      console.log('Payload:', JSON.stringify(safeBody, null, 2));
-    }
-    
-    console.log(`Status: ${res.statusCode}`);
-    
-    // Intentar imprimir la respuesta
-    try {
-      const parsed = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
-      const resString = JSON.stringify(parsed, null, 2);
-      // Truncar respuestas muy largas (ej. base64 de PDFs o listas gigantes)
-      if (resString && resString.length > 2000) {
-        console.log('Response: [Respuesta muy larga para mostrar en consola]');
-      } else {
-        console.log('Response:', resString);
-      }
-    } catch (e) {
-      console.log('Response:', '[Respuesta no-JSON o archivo]');
-    }
-    console.log('======================================================\n');
-  });
-  
-  next();
-});
+// Custom middleware para loggear params, body y responses - Removido por ser muy verboso
 
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({ ok: true, msg: 'Funcionando con Arquitectura POO y DI' });

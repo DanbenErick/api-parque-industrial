@@ -22,6 +22,8 @@ export interface ILectura {
   lectura_inicial_nuevo?: number | null;
   lectura_final_viejo_punta?: number | null;
   lectura_inicial_nuevo_punta?: number | null;
+  max_demanda_punta?: number | null;
+  max_demanda_fuera_punta?: number | null;
   created_at?: Date;
   updated_at?: Date;
   deleted_at?: Date | null;

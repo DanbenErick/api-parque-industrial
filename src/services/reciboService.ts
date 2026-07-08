@@ -11,7 +11,7 @@ export class ReciboService {
 
           try {
             await connection.query('SET @current_user_id = ?', [admin_id]);
-            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador, fecha_emision_recibo, fecha_vencimiento, fecha_corte FROM periodo_facturacion WHERE id = ?', [periodo_id]);
+            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_tr, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador, fecha_emision_recibo, fecha_vencimiento, fecha_corte FROM periodo_facturacion WHERE id = ?', [periodo_id]);
             if (periodos.length === 0) {
                 await connection.rollback();
                 throw new Error('Período no encontrado');
@@ -97,8 +97,8 @@ export class ReciboService {
 
             for (const lectura of lecturasAProcesar) {
               const consumo = parseFloat(lectura.consumo_calculado) || 0;
-              const tarifa_kwh = parseFloat(periodo.tarifa_kwh) || 0;
-              const tarifa_mantenimiento = lectura.tipo === TipoMedidor.TIEMPO_REAL ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
+              const tarifa_kwh = lectura.tipo === TipoMedidor.HORA_PUNTA ? parseFloat(periodo.tarifa_kwh_tr) : parseFloat(periodo.tarifa_kwh) || 0;
+              const tarifa_mantenimiento = lectura.tipo === TipoMedidor.HORA_PUNTA ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
               
               const cargo_energia = consumo * tarifa_kwh;
               const cargo_mantenimiento = tarifa_mantenimiento || 0;
@@ -106,7 +106,7 @@ export class ReciboService {
               let cargo_energia_punta = 0;
               let cargo_factor_potencia = 0;
 
-              if (lectura.tipo === TipoMedidor.TIEMPO_REAL) {
+              if (lectura.tipo === TipoMedidor.HORA_PUNTA) {
                 const consumo_punta = parseFloat(lectura.consumo_calculado_punta) || 0;
                 const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
                 cargo_energia_punta = consumo_punta * tarifa_kwh_punta;
@@ -257,7 +257,7 @@ export class ReciboService {
 
           try {
             await connection.query('SET @current_user_id = ?', [admin_id]);
-            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador, fecha_emision_recibo, fecha_vencimiento, fecha_corte FROM periodo_facturacion WHERE id = ?', [periodo_id]);
+            const [periodos]: any = await connection.query('SELECT mes_anio, tarifa_kwh, tarifa_kwh_tr, tarifa_kwh_punta, tarifa_mantenimiento_normal, tarifa_mantenimiento_tiempo_real, factor_multiplicador, fecha_emision_recibo, fecha_vencimiento, fecha_corte FROM periodo_facturacion WHERE id = ?', [periodo_id]);
             if (periodos.length === 0) {
                 await connection.rollback();
                 throw new Error('Período no encontrado');
@@ -408,13 +408,13 @@ export class ReciboService {
 
               if (lectura && !lectura.isDummy) {
                 consumo = parseFloat(lectura.consumo_calculado) || 0;
-                const tarifa_kwh = parseFloat(periodo.tarifa_kwh) || 0;
-                const tarifa_mantenimiento = lectura.tipo === TipoMedidor.TIEMPO_REAL ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
+                const tarifa_kwh = lectura.tipo === TipoMedidor.HORA_PUNTA ? parseFloat(periodo.tarifa_kwh_tr) : parseFloat(periodo.tarifa_kwh) || 0;
+                const tarifa_mantenimiento = lectura.tipo === TipoMedidor.HORA_PUNTA ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
                 
                 cargo_energia = consumo * tarifa_kwh;
                 cargo_mantenimiento = tarifa_mantenimiento || 0;
 
-                if (lectura.tipo === TipoMedidor.TIEMPO_REAL) {
+                if (lectura.tipo === TipoMedidor.HORA_PUNTA) {
                   const consumo_punta = parseFloat(lectura.consumo_calculado_punta) || 0;
                   const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
                   cargo_energia_punta = consumo_punta * tarifa_kwh_punta;
@@ -509,13 +509,16 @@ export class ReciboService {
           try {
             await connection.query('SET @current_user_id = ?', [admin_id]);
             // 1. Obtener recibo actual
-            const [rows]: any = await connection.query('SELECT cargo_energia, cargo_mantenimiento FROM recibo WHERE id = ?', [id]);
+            const [rows]: any = await connection.query('SELECT cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento FROM recibo WHERE id = ?', [id]);
             if (rows.length === 0) throw new Error('Recibo no encontrado');
             
             const r = rows[0];
             const descuento_val = parseFloat(descuento || 0);
             
-            let subtotal = parseFloat(r.cargo_energia) + parseFloat(r.cargo_mantenimiento) + 
+            let subtotal = parseFloat(r.cargo_energia) + 
+                             parseFloat(r.cargo_energia_punta || 0) + 
+                             parseFloat(r.cargo_factor_potencia || 0) + 
+                             parseFloat(r.cargo_mantenimiento) + 
                              parseFloat(cargo_fijo || 0) + parseFloat(cargo_corte || 0) + 
                              parseFloat(multa_manipulacion || 0) + parseFloat(multa_reconexion || 0) + 
                              parseFloat(instalacion_medidor || 0) + 

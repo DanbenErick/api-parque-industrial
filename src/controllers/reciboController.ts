@@ -159,13 +159,13 @@ export class ReciboController {
           return this.pdfService.buildReciboPdf(req, res);
         };
     public exportReciboPdfV2 = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
-          return this.pdfService.buildReciboPdfV2(req, res);
+          return this.pdfService.buildReciboPdf(req, res);
         };
     public exportReciboPdfV3 = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
-          return this.pdfService.buildReciboPdfV3(req, res);
+          return this.pdfService.buildReciboPdf(req, res);
         };
     public exportAllRecibosPdfV2 = async (req: Request<{}, any, any, IGetRecibosQuery>, res: Response): Promise<any> => {
-          return this.pdfService.buildAllRecibosPdfV2(req, res);
+          return this.pdfService.buildAllRecibosPdf(req, res);
         };
     public exportReporteExcel = async (req: Request<{}, any, any, IExportReporteExcelQuery>, res: Response): Promise<any> => {
           return this.excelService.buildReporteExcel(req, res);
@@ -219,6 +219,19 @@ export class ReciboController {
           } catch (error: any) {
             console.error('Error al generar PDF Reporte:', error);
             res.status(500).json({ error: 'Error al generar el PDF del reporte' });
+          }
+        };
+
+    public getHistorial = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
+          try {
+            const historial = await this.reciboRepo.findHistorialPorRecibo(req.params.id);
+            if (!historial || historial.length === 0) {
+              return res.status(404).json({ error: 'Historial no encontrado' });
+            }
+            res.json(historial);
+          } catch (error) {
+            console.error('Error al obtener historial de recibos:', error);
+            res.status(500).json({ error: 'Error al obtener el historial de recibos' });
           }
         };
 }

@@ -274,17 +274,6 @@ INSERT INTO `pago` (`id`, `recibo_id`, `monto_pagado`, `metodo_pago`, `numero_op
 	(11, 41, 21.02, 'Transferencia', NULL, '2026-06-17 06:40:24', 'Confirmado', '2026-06-17 06:40:24', '2026-06-17 06:40:24', NULL);
 
 -- Volcando estructura para tabla parque_industrial_jicamarca.periodo_facturacion
-DROP TABLE IF EXISTS `periodo_facturacion`;
-CREATE TABLE IF NOT EXISTS `periodo_facturacion` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `mes_anio` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'Ej. Oct 2024',
-  `factor_multiplicador` decimal(6,4) NOT NULL DEFAULT '1.0000',
-  `tarifa_kwh` decimal(10,4) NOT NULL COMMENT 'Precio por kWh de energía eléctrica',
-  `tarifa_kwh_punta` decimal(10,4) NOT NULL DEFAULT '0.0000',
-  `tarifa_mantenimiento_normal` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'Cargo mensual de mantenimiento medidor normal',
-  `tarifa_mantenimiento_tiempo_real` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT 'Cargo mensual de mantenimiento medidor tiempo real',
-  `fecha_inicio` date NOT NULL,
-  `fecha_fin` date NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` timestamp NULL DEFAULT NULL,
@@ -295,11 +284,11 @@ CREATE TABLE IF NOT EXISTS `periodo_facturacion` (
 
 -- Volcando datos para la tabla parque_industrial_jicamarca.periodo_facturacion: ~4 rows (aproximadamente)
 DELETE FROM `periodo_facturacion`;
-INSERT INTO `periodo_facturacion` (`id`, `mes_anio`, `factor_multiplicador`, `tarifa_kwh`, `tarifa_kwh_punta`, `tarifa_mantenimiento_normal`, `tarifa_mantenimiento_tiempo_real`, `fecha_inicio`, `fecha_fin`, `created_at`, `updated_at`, `deleted_at`) VALUES
-	(14, '2026-05', 1.0000, 0.5600, 0.5800, 10.00, 5.00, '2026-05-01', '2026-05-31', '2026-06-13 07:11:58', '2026-06-13 07:11:58', NULL),
-	(15, '2026-06', 1.0000, 0.6000, 0.4300, 4.00, 3.00, '2026-06-01', '2026-06-30', '2026-06-13 07:52:32', '2026-06-13 07:52:32', NULL),
-	(16, '2026-01', 1.0000, 0.5300, 28.9700, 10.00, 10.00, '2026-06-14', '2026-06-22', '2026-06-15 03:34:34', '2026-06-15 03:34:34', NULL),
-	(17, '2026-07', 1.0000, 0.5800, 0.6000, 10.00, 10.00, '2026-07-01', '2026-07-31', '2026-06-17 06:38:54', '2026-06-17 06:38:54', NULL);
+INSERT INTO `periodo_facturacion` (`id`, `mes_anio`, `factor_multiplicador`, `tarifa_kwh`, `tarifa_kwh_tr`, `tarifa_kwh_punta`, `tarifa_mantenimiento_normal`, `tarifa_mantenimiento_tiempo_real`, `fecha_inicio`, `fecha_fin`, `created_at`, `updated_at`, `deleted_at`) VALUES
+	(14, '2026-05', 1.0000, 0.5600, 0.5600, 0.5800, 10.00, 5.00, '2026-05-01', '2026-05-31', '2026-06-13 07:11:58', '2026-06-13 07:11:58', NULL),
+	(15, '2026-06', 1.0000, 0.6000, 0.6000, 0.4300, 4.00, 3.00, '2026-06-01', '2026-06-30', '2026-06-13 07:52:32', '2026-06-13 07:52:32', NULL),
+	(16, '2026-01', 1.0000, 0.5300, 0.5300, 28.9700, 10.00, 10.00, '2026-06-14', '2026-06-22', '2026-06-15 03:34:34', '2026-06-15 03:34:34', NULL),
+	(17, '2026-07', 1.0000, 0.5800, 0.5800, 0.6000, 10.00, 10.00, '2026-07-01', '2026-07-31', '2026-06-17 06:38:54', '2026-06-17 06:38:54', NULL);
 
 -- Volcando estructura para tabla parque_industrial_jicamarca.recibo
 DROP TABLE IF EXISTS `recibo`;

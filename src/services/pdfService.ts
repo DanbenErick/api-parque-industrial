@@ -36,282 +36,9 @@ interface IGetRecibosQuery {
 // GENERAR PDF DE RECIBO DE LUZ (Diseño Moderno & Elegante con todos los datos)
 // -------------------------------------------------------
 // -------------------------------------------------------
-// GENERAR PDF DE RECIBO DE LUZ (V2 - DISEÑO REDISEÑADO FACTURA)
-// -------------------------------------------------------
-const drawReciboLayoutV2 = (doc: any, recibo: any, historial: any, logoPath: any, cuentaBancaria: string) => {
-  const PRIMARY = '#1e3a8a';  // Azul muy oscuro
-  const SECONDARY = '#e11d48';  // Rojo destaque
-  const TEXT_MAIN = '#1e293b';  
-  const TEXT_LIGHT = '#64748b'; 
-  const BORDER = '#e2e8f0';   
-  const BG_LIGHT = '#f8fafc';   
-
-  const margin = 30;
-  const contentWidth = doc.page.width - margin * 2;
-  
-  const formatDate = (d: any) => {
-    if (!d) return '-';
-    return new Date(d).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-  const formatNum = (n: any) => {
-    if (n === null || n === undefined) return '0.00';
-    return parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  };
-  const parseMesAnio = (mesAnio: any) => {
-    if (!mesAnio) return { mes: '-', anio: '-' };
-    const [anio, mes] = mesAnio.split('-');
-    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    return { mes: meses[parseInt(mes) - 1] || mes, anio };
-  };
-  const { mes, anio } = parseMesAnio(recibo.mes_anio);
-
-  // ==========================================
-  // BLOQUE 0: DISEÑO Y MARCAS DE AGUA (FONDO)
-  // ==========================================
-  // Tira corporativa superior (Poca tinta, alto impacto visual)
-  doc.rect(0, 0, doc.page.width, 12).fill(PRIMARY);
-  doc.rect(0, 12, doc.page.width, 3).fill(SECONDARY);
-  
-  // Marca de agua sutil (Texto rotado)
-  doc.save();
-  doc.rotate(-45, { origin: [doc.page.width/2, doc.page.height/2] });
-  doc.fillColor('#f1f5f9').fontSize(110).font('Lexend-Bold').text('RECIBO', doc.page.width/2 - 200, doc.page.height/2 - 100, { opacity: 0.3 });
-  doc.fillColor('#f1f5f9').fontSize(110).font('Lexend-Bold').text('ELÉCTRICO', doc.page.width/2 - 250, doc.page.height/2 + 20, { opacity: 0.3 });
-  doc.restore();
-
-  // ==========================================
-  // BLOQUE 1: CABECERA (LOGO Y DATOS GENERALES)
-  // ==========================================
-  let y = margin + 20;
-  
-  // Logo
-  if (fs.existsSync(logoPath)) {
-    doc.image(logoPath, margin, y, { width: 55, height: 55 });
-  } else {
-    doc.circle(margin + 25, y + 25, 25).fill(PRIMARY);
-    doc.fillColor('#fff').fontSize(24).font('Lexend-Bold').text('P', margin + 15, y + 12);
-  }
-
-  // Texto de cabecera centrado verticalmente con el logo
-  doc.fillColor(PRIMARY).fontSize(20).font('Lexend-Bold').text('PARQUE INDUSTRIAL', margin + 70, y + 5);
-  doc.fillColor(TEXT_MAIN).fontSize(16).font('Lexend-Medium').text('JICAMARCA ANEXO 8', margin + 70, y + 30);
-
-  // Línea divisoria elegante
-  y += 75;
-  doc.moveTo(margin, y).lineTo(doc.page.width - margin, y).lineWidth(1).strokeColor(BORDER).stroke();
-  y += 20;
-
-  // ==========================================
-  // BLOQUE 2: DATOS DEL CLIENTE Y SERVICIO
-  // ==========================================
-  doc.roundedRect(margin, y, contentWidth, 75, 6).fillAndStroke(BG_LIGHT, BORDER);
-  
-  doc.fillColor(TEXT_MAIN).fontSize(12).font('Lexend-Bold').text('DATOS DEL CLIENTE', margin + 15, y + 15);
-  
-  doc.fontSize(10).font('Lexend-Medium').text('Razón Social:', margin + 15, y + 35);
-  doc.font('Lexend').text(recibo.nombre_razonsocial || '-', margin + 100, y + 35);
-  
-  doc.font('Lexend-Medium').text('Doc/RUC:', margin + 15, y + 55);
-  doc.font('Lexend').text(recibo.documento_identidad || '-', margin + 100, y + 55);
-
-  // Vertical Divider
-  doc.moveTo(margin + contentWidth / 2, y + 15).lineTo(margin + contentWidth / 2, y + 60).strokeColor(BORDER).stroke();
-
-  doc.font('Lexend-Medium').text('Tipo Servicio:', margin + contentWidth / 2 + 15, y + 15);
-  doc.font('Lexend').text('Industrial', margin + contentWidth / 2 + 105, y + 15);
-
-  doc.font('Lexend-Medium').text('Nro. Medidor:', margin + contentWidth / 2 + 15, y + 35);
-  doc.font('Lexend').text(recibo.num_medidor || '-', margin + contentWidth / 2 + 105, y + 35);
-
-  doc.font('Lexend-Medium').text('Mes Facturado:', margin + contentWidth / 2 + 15, y + 55);
-  doc.fillColor(PRIMARY).font('Lexend-Bold').text(`${mes} ${anio}`, margin + contentWidth / 2 + 105, y + 55);
-
-  y += 95;
-
-  // ==========================================
-  // BLOQUE 3: LECTURAS Y DETALLES (2 COLUMNAS)
-  // ==========================================
-  const colLeftW = 210;
-  const colRightX = margin + colLeftW + 20;
-  const colRightW = contentWidth - colLeftW - 20;
-
-  // -- COLUMNA IZQUIERDA (CONSUMO Y GRÁFICO) --
-  // Lecturas
-  doc.roundedRect(margin, y, colLeftW, 100, 6).strokeColor(BORDER).stroke();
-  doc.rect(margin, y, colLeftW, 25).fillAndStroke(PRIMARY, PRIMARY);
-  doc.fillColor('#fff').fontSize(10).font('Lexend-Bold').text('DETALLE DE CONSUMO', margin, y + 8, { width: colLeftW, align: 'center' as const });
-
-  let cy = y + 35;
-  doc.fillColor(TEXT_MAIN).fontSize(9).font('Lexend');
-  doc.text('Lectura Actual:', margin + 12, cy);
-  doc.font('Lexend-Bold').text(formatNum(recibo.lectura_actual), margin + 90, cy, { width: 55, align: 'right' as const });
-  doc.font('Lexend').text(formatDate(recibo.periodo_fin), margin + 155, cy);
-  
-  cy += 20;
-  doc.text('Lectura Anterior:', margin + 12, cy);
-  doc.font('Lexend-Bold').text(formatNum(recibo.lectura_anterior), margin + 90, cy, { width: 55, align: 'right' as const });
-  doc.font('Lexend').text(formatDate(recibo.periodo_inicio), margin + 155, cy);
-  
-  cy += 20;
-  doc.rect(margin + 12, cy - 3, colLeftW - 24, 20).fill(BG_LIGHT);
-  doc.fillColor(PRIMARY).font('Lexend-Bold').text('Consumo (KW):', margin + 18, cy + 3);
-  doc.text(formatNum(recibo.consumo_calculado), margin + 90, cy + 3, { width: 55, align: 'right' as const });
-
-  // Gráfico de Barras
-  let gy = y + 115;
-  doc.roundedRect(margin, gy, colLeftW, 175, 6).strokeColor(BORDER).stroke();
-  doc.rect(margin, gy, colLeftW, 25).fillAndStroke(PRIMARY, PRIMARY);
-  doc.fillColor('#fff').fontSize(10).font('Lexend-Bold').text('HISTORIAL DE CONSUMO', margin, gy + 8, { width: colLeftW, align: 'center' as const });
-
-  if (historial.length > 0) {
-    const cH = 110;
-    const bY = gy + 150; // Base line
-    const maxC = Math.max(...historial.map((h: any) => parseFloat(h.consumo_calculado) || 0), 10);
-    const spacing = (colLeftW - 20) / historial.length;
-    const barW = spacing - 10;
-    
-    historial.forEach((h: any, i: any) => {
-    const val = parseFloat(h.consumo_calculado) || 0;
-    const bH = (val / maxC) * cH;
-    const bX = margin + 10 + (i * spacing) + 5;
-    
-    doc.rect(bX, bY - bH, barW, bH).fill(TEXT_LIGHT);
-    if (i === historial.length - 1) doc.rect(bX, bY - bH, barW, bH).fill(PRIMARY); // Destacar el último
-    
-    doc.fillColor(TEXT_MAIN).fontSize(7).font('Lexend-Medium').text(Math.round(val).toString(), bX - 5, bY - bH - 12, { width: barW + 10, align: 'center' as const });
-    
-    const mLabel = h.mes_anio ? h.mes_anio.substring(5) : '';
-    const monthNames: any = { '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic' };
-    doc.text(monthNames[mLabel] || mLabel, bX - 5, bY + 8, { width: barW + 10, align: 'center' as const });
-    });
-  }
-
-  // -- COLUMNA DERECHA (IMPORTES FACTURADOS) --
-  doc.roundedRect(colRightX, y, colRightW, 290, 6).strokeColor(BORDER).stroke();
-  doc.rect(colRightX, y, colRightW, 25).fillAndStroke(PRIMARY, PRIMARY);
-  doc.fillColor('#fff').fontSize(10).font('Lexend-Bold');
-  doc.text('DESCRIPCIÓN', colRightX + 15, y + 8);
-  doc.text('P.U.', colRightX + 170, y + 8, { width: 40, align: 'right' as const });
-  doc.text('MONTO (S/)', colRightX + 220, y + 8, { width: 70, align: 'right' as const });
-
-  let ry = y + 35;
-  let isZebra = false;
-
-  const drawRowV2 = (desc: any, pu: any, monto: any, isBold = false, isIndented = false) => {
-    if (isZebra) {
-    doc.rect(colRightX + 2, ry - 4, colRightW - 4, 22).fill(BG_LIGHT);
-    }
-    doc.fillColor(isBold ? PRIMARY : TEXT_MAIN).fontSize(9).font(isBold ? 'Lexend-Bold' : 'Lexend');
-    doc.text(desc, colRightX + (isIndented ? 25 : 15), ry);
-    if(pu !== null) doc.text(formatNum(pu), colRightX + 170, ry, { width: 40, align: 'right' as const });
-    doc.text(formatNum(monto), colRightX + 220, ry, { width: 70, align: 'right' as const });
-    ry += 22;
-    isZebra = !isZebra;
-  };
-
-  const totalMantenimiento = parseFloat(recibo.cargo_mantenimiento) || 0;
-  const consumoKw = parseFloat(recibo.consumo_calculado) || 0;
-  const tarifaKwh = parseFloat(recibo.tarifa_kwh) || 0;
-  const costoConsumo = parseFloat(recibo.cargo_energia) || 0;
-  
-  const costoConsumoPunta = parseFloat(recibo.cargo_energia_punta) || 0;
-  const costoFactorPotencia = parseFloat(recibo.cargo_factor_potencia) || 0;
-
-  // Desglose
-  const consumoPunta = parseFloat(recibo.consumo_calculado_punta) || 0;
-  const fPotencia = parseFloat(recibo.factor_potencia) || 0;
-  const tarifaPunta = parseFloat(recibo.tarifa_kwh_punta) || 0;
-  const precioFP = parseFloat(recibo.precio_factor_potencia) || (fPotencia > 0 ? costoFactorPotencia / fPotencia : 0);
-
-  drawRowV2('Consumo Energía Activa', tarifaKwh, costoConsumo);
-  if (consumoPunta > 0) drawRowV2('Consumo Hora Punta', tarifaPunta, costoConsumoPunta);
-  if (fPotencia > 0) drawRowV2('Cargo Factor Potencia', precioFP, costoFactorPotencia);
-  drawRowV2('Mantenimiento de Red', null, totalMantenimiento);
-  drawRowV2('Corte / Reconexión', null, parseFloat(recibo.cargo_corte) || 0);
-  drawRowV2('Cargo Fijo Mensual', null, parseFloat(recibo.cargo_fijo) || 0);
-  
-  doc.moveTo(colRightX + 15, ry).lineTo(colRightX + colRightW - 15, ry).strokeColor(BORDER).stroke();
-  ry += 10;
-  isZebra = false;
-  
-  const subtotal = parseFloat(recibo.subtotal) || (totalMantenimiento + costoConsumo);
-  drawRowV2('SUBTOTAL DEL MES', null, subtotal, true);
-  
-  doc.moveTo(colRightX + 15, ry).lineTo(colRightX + colRightW - 15, ry).strokeColor(BORDER).stroke();
-  ry += 10;
-  isZebra = false;
-
-  drawRowV2('Multa por Manipulación', null, parseFloat(recibo.multa_manipulacion) || 0);
-  drawRowV2('Multa por Reconexión', null, parseFloat(recibo.multa_reconexion) || 0);
-  drawRowV2('Instalación de Medidor', null, parseFloat(recibo.instalacion_medidor) || 0);
-  drawRowV2('Deuda Vencida Anteriores', null, parseFloat(recibo.deuda_vencida) || 0, true);
-  
-  const descuento = parseFloat(recibo.descuento) || 0;
-  if (descuento > 0) {
-    doc.fillColor('#059669').fontSize(9).font('Lexend-Bold');
-    doc.text('Saldo a Favor Aplicado', colRightX + 15, ry);
-    doc.text('-' + formatNum(descuento), colRightX + 220, ry, { width: 70, align: 'right' as const });
-    ry += 22;
-    isZebra = !isZebra;
-  }
-  
-  // Total
-  const total = parseFloat(recibo.total) || (subtotal + parseFloat(recibo.igv));
-  ry = y + 240;
-  doc.rect(colRightX, ry, colRightW, 50).fillAndStroke(PRIMARY, PRIMARY);
-  doc.fillColor('#fff').fontSize(16).font('Lexend-Bold').text('TOTAL FACTURADO S/.', colRightX + 15, ry + 18);
-  doc.fontSize(22).text(formatNum(total), colRightX + 130, ry + 15, { width: 160, align: 'right' as const });
-
-  y += 310;
-
-  // ==========================================
-  // BLOQUE 4: FECHAS Y AVISOS
-  // ==========================================
-  // Fechas
-  doc.roundedRect(margin, y, 210, 70, 6).fillAndStroke(BG_LIGHT, BORDER);
-  doc.fillColor(TEXT_MAIN).fontSize(9).font('Lexend-Medium').text('FECHA DE EMISIÓN:', margin + 15, y + 15);
-  doc.font('Lexend-Bold').text(formatDate(recibo.fecha_emision), margin + 130, y + 15);
-  
-  doc.fillColor(SECONDARY).font('Lexend-Medium').text('ÚLTIMO DÍA DE PAGO:', margin + 15, y + 33);
-  doc.fontSize(12).font('Lexend-Bold').text(formatDate(recibo.fecha_vencimiento), margin + 130, y + 31);
-  
-  const fechaCorte = recibo.fecha_corte ? new Date(recibo.fecha_corte) : (recibo.fecha_vencimiento ? new Date(new Date(recibo.fecha_vencimiento).getTime() + 86400000) : null);
-  doc.fillColor(TEXT_MAIN).fontSize(9).font('Lexend-Medium').text('CORTE DE SERVICIO:', margin + 15, y + 51);
-  doc.font('Lexend-Bold').text(formatDate(fechaCorte), margin + 130, y + 51);
-
-  // Mensaje
-  doc.roundedRect(margin + 230, y, contentWidth - 230, 70, 6).strokeColor(BORDER).stroke();
-  doc.fillColor(TEXT_LIGHT).fontSize(9).font('Lexend-Medium').text('COMUNICADO IMPORTANTE', margin + 245, y + 12);
-  doc.font('Lexend').text('Estimado asociado, evite el corte y recargo por reconexión pagando puntualmente su recibo. Cualquier reclamo se atenderá dentro de los primeros 5 días.', margin + 245, y + 28, { width: contentWidth - 260 });
-
-  // ==========================================
-  // BLOQUE 5: TALÓN DE PAGO (PIE DE PÁGINA)
-  // ==========================================
-  let talonY = doc.page.height - 180;
-  
-  // Línea de corte
-  doc.dash(5, { space: 5 }).moveTo(margin, talonY).lineTo(doc.page.width - margin, talonY).strokeColor(TEXT_LIGHT).stroke();
-  doc.undash(); // Reset
-  
-  talonY += 20;
-  doc.fillColor(TEXT_MAIN).fontSize(11).font('Lexend-Bold').text('TALÓN DE PAGO PARA EL BANCO', margin, talonY);
-  doc.fontSize(9).font('Lexend-Medium').text('Depositar en ventanilla o agentes a la siguiente cuenta recaudadora:', margin, talonY + 18);
-  
-  doc.roundedRect(margin, talonY + 40, 270, 50, 6).fillAndStroke('#eff6ff', '#bfdbfe'); // Light blue box
-  doc.fillColor(PRIMARY).fontSize(11).font('Lexend-Bold').text('CUENTA BANCARIA', margin + 15, talonY + 52);
-  doc.fontSize(14).text(cuentaBancaria || 'Nº CTA: 191-14302973046', margin + 15, talonY + 70);
-
-  doc.fillColor(TEXT_MAIN).fontSize(9).font('Lexend-Medium');
-  doc.text('Código de Suministro:', doc.page.width - margin - 220, talonY + 45);
-  doc.font('Lexend-Bold').fontSize(14).text(recibo.id.toString(), doc.page.width - margin - 80, talonY + 42, { width: 80, align: 'right' as const });
-  
-  doc.font('Lexend-Medium').fontSize(9).text('Monto a Pagar S/:', doc.page.width - margin - 220, talonY + 70);
-  doc.font('Lexend-Bold').fontSize(18).text(formatNum(total), doc.page.width - margin - 90, talonY + 65, { width: 90, align: 'right' as const });
-};
-// -------------------------------------------------------
 // GENERAR PDF DE RECIBO DE LUZ (V3 - DISEÑO PREMIUM)
 // -------------------------------------------------------
-const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any, cuentaBancaria: string) => {
+const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, cuentaBancaria: string) => {
   // ── PALETA ──
   const NAVY      = '#0f172a';
   const TEAL      = '#0d9488';
@@ -402,7 +129,7 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   doc.text(`${recibo.documento_identidad || '-'}`, margin + 10, y + 35);
   doc.text(`${recibo.direccion || '-'}`, margin + 10, y + 46);
   doc.fillColor(SLATE_LT).font('Lexend-Medium');
-  doc.text(`Medidor: ${recibo.num_medidor || 'Sin medidor'}`, margin + 10, y + 58);
+  doc.text(`Medidor: ${recibo.num_medidor || 'Sin medidor'} (${recibo.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (recibo.medidor_tipo || 'Normal')})`, margin + 10, y + 58);
 
   // -- Columna derecha: Periodo
   doc.roundedRect(col2X, y, col2W, 70, 5).fill(BG).strokeColor(BORDER).stroke();
@@ -422,40 +149,56 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   // ═══════════════════════════════════════════════
   const consPuntaLayout = parseFloat(recibo.consumo_calculado_punta) || 0;
   const fPotenciaLayout = parseFloat(recibo.factor_potencia) || 0;
-  const esTiempoReal = consPuntaLayout > 0 || fPotenciaLayout > 0;
+  const maxDemandaN = parseFloat(recibo.max_demanda_fuera_punta) || 0;
+  const maxDemandaP = parseFloat(recibo.max_demanda_punta) || 0;
+  const esTiempoReal = consPuntaLayout > 0 || fPotenciaLayout > 0 || maxDemandaN > 0 || maxDemandaP > 0;
 
-  doc.roundedRect(margin, y, W, 46, 5).strokeColor(BORDER).stroke();
   const blockW = W / 4;
-  let blocks = [];
+  let rowsOfBlocks = [];
 
   if (esTiempoReal) {
-    blocks = [
+    rowsOfBlocks.push([
       { label: 'HORA NORMAL (Ant/Act)', value: `${fmt(recibo.lectura_anterior)} / ${fmt(recibo.lectura_actual)}`, sub: 'Lectura kWh' },
       { label: 'CONSUMO NORMAL',        value: `${fmt(recibo.consumo_calculado)}`,      sub: 'kWh Facturados' },
       { label: 'HORA PUNTA (Ant/Act)',  value: `${fmt(recibo.lectura_anterior_punta)} / ${fmt(recibo.lectura_actual_punta)}`, sub: 'Lectura Punta kWh' },
       { label: 'CONSUMO PUNTA',         value: `${fmt(recibo.consumo_calculado_punta)}`, sub: 'kWh Facturados Punta' }
-    ];
+    ]);
+    rowsOfBlocks.push([
+      { label: 'MÁX. DEM. FUERA PUNTA', value: `${fmt(maxDemandaN)}`, sub: 'kW' },
+      { label: 'MÁX. DEM. PUNTA',       value: `${fmt(maxDemandaP)}`, sub: 'kW' },
+      { label: 'ENERGÍA REACTIVA',      value: `${fmt(fPotenciaLayout)}`, sub: 'kVARh' },
+      { label: 'N° MEDIDOR',            value: recibo.num_medidor || 'S/M', sub: 'Equipo Registrado' }
+    ]);
   } else {
-    blocks = [
+    rowsOfBlocks.push([
       { label: 'LECTURA ANTERIOR', value: fmt(recibo.lectura_anterior), sub: fmtDate(recibo.periodo_inicio) },
       { label: 'LECTURA ACTUAL',   value: fmt(recibo.lectura_actual),   sub: fmtDate(recibo.periodo_fin)    },
       { label: 'CONSUMO kWh',      value: fmt(recibo.consumo_calculado), sub: 'Mes Facturado'               },
       { label: 'N° MEDIDOR',       value: recibo.num_medidor || 'S/M',   sub: 'Equipo Registrado'           }
-    ];
+    ]);
   }
 
-  blocks.forEach((b, i) => {
-    const bx = margin + (blockW * i);
-    if (i > 0) doc.moveTo(bx, y + 8).lineTo(bx, y + 38).strokeColor(BORDER).lineWidth(1).stroke();
-    doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
-    doc.text(b.label, bx + 10, y + 7, { lineBreak: false });
-    doc.fillColor(NAVY).fontSize(11).font('Lexend-Bold');
-    doc.text(b.value, bx + 10, y + 18, { lineBreak: false });
-    doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend');
-    doc.text(b.sub, bx + 10, y + 34, { lineBreak: false });
+  const boxHeight = rowsOfBlocks.length * 46;
+  doc.roundedRect(margin, y, W, boxHeight, 5).strokeColor(BORDER).stroke();
+
+  rowsOfBlocks.forEach((blocks, rowIndex) => {
+    const rowY = y + (rowIndex * 46);
+    if (rowIndex > 0) {
+      doc.moveTo(margin, rowY).lineTo(margin + W, rowY).strokeColor(BORDER).lineWidth(1).stroke();
+    }
+    blocks.forEach((b, i) => {
+      const bx = margin + (blockW * i);
+      if (i > 0) doc.moveTo(bx, rowY + 8).lineTo(bx, rowY + 38).strokeColor(BORDER).lineWidth(1).stroke();
+      doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
+      doc.text(b.label, bx + 10, rowY + 7, { lineBreak: false });
+      doc.fillColor(NAVY).fontSize(11).font('Lexend-Bold');
+      doc.text(b.value, bx + 10, rowY + 18, { lineBreak: false });
+      doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend');
+      doc.text(b.sub, bx + 10, rowY + 34, { lineBreak: false });
+    });
   });
 
-  y += 54;
+  y += boxHeight + 8;
 
   // ═══════════════════════════════════════════════
   // 4. TABLA DE IMPORTES FACTURADOS
@@ -484,7 +227,7 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
   const precioFP = parseFloat(recibo.precio_factor_potencia) || (fPotencia > 0 ? cargoFactorPot / fPotencia : 0);
 
   if (consumoPunta > 0) items.push({ desc: 'Consumo Energía Activa (Hora Punta)', tarifa: `S/ ${fmt(tarifaPunta)}/kWh`, monto: cargoEnergiaPunta });
-  if (fPotencia > 0) items.push({ desc: 'Cargo Factor de Potencia', tarifa: `S/ ${fmt(precioFP)}/kVARh`, monto: cargoFactorPot });
+  if (fPotencia > 0) items.push({ desc: 'Cargo Energía Reactiva Capacitiva', tarifa: `S/ ${fmt(precioFP)}/kVARh`, monto: cargoFactorPot });
 
   const cargoMant = parseFloat(recibo.cargo_mantenimiento) || 0;
   if (cargoMant > 0) items.push({ desc: 'Mantenimiento de Red', tarifa: null, monto: cargoMant });
@@ -625,12 +368,12 @@ const drawReciboLayoutV3 = (doc: any, recibo: any, historial: any, logoPath: any
     const chartY = y + 20;
     const chartH = 42;
     const chartW = rightBoxW - 20;
-    const maxVal = Math.max(...historial.map((h: any) => parseFloat(h.consumo_calculado) || 0), 10);
+    const maxVal = Math.max(...historial.map((h: any) => (parseFloat(h.consumo_calculado) || 0) + (parseFloat(h.consumo_calculado_punta) || 0)), 10);
     const barSpacing = chartW / historial.length;
     const barW = Math.min(barSpacing - 6, 26);
 
     historial.forEach((h: any, i: any) => {
-      const val = parseFloat(h.consumo_calculado) || 0;
+      const val = (parseFloat(h.consumo_calculado) || 0) + (parseFloat(h.consumo_calculado_punta) || 0);
       const barH = (val / maxVal) * chartH;
       const bx = rightBoxX + 10 + (i * barSpacing) + (barSpacing - barW) / 2;
       const by = chartY + chartH - barH;
@@ -727,408 +470,6 @@ export class PdfService {
     public buildReciboPdf = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
           const id = Number(req.params.id);
 
-          try {
-            const recibo = await this.reciboRepo.findByIdCompleto(id);
-            if (!recibo) return res.status(404).json({ error: 'Recibo no encontrado' });
-
-            if (req.user?.nombre_rol === RolUsuario.SOCIO && req.user.id !== recibo.usuario_id) {
-              return res.status(403).json({ error: 'No tienes permisos para ver este recibo' });
-            }
-
-            const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 7, recibo.periodo_inicio);
-
-            const doc = new PDFDocument({ size: 'A4', margin: 40 });
-
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=recibo_${recibo.numero_comprobante || id}.pdf`);
-            
-            // Registrar fuentes Lexend
-            const fontPath = path.join(__dirname, '../fonts');
-            doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
-            doc.registerFont('Lexend-Medium', path.join(fontPath, 'Lexend-Medium.ttf'));
-            doc.registerFont('Lexend-Bold', path.join(fontPath, 'Lexend-Bold.ttf'));
-
-            doc.pipe(res);
-
-            // PALETA REFINADA
-            const PRIMARY = '#1F497D';    // Azul Oscuro
-            const TEXT = '#1e293b';       // Pizarra oscuro
-            const MUTED = '#475569';      // Gris medio
-            const BORDER = '#cbd5e1';     // Gris claro
-            const HEADER_BG = '#e0e7ff';  // Indigo clarito
-            const YELLOW = '#fef08a';     // Amarillo pastel moderno
-            const YELLOW_BORDER = '#eab308'; // Borde sutil
-            const RED = '#e11d48';        // Rojo carmesí elegante
-            const RED_BG = '#fff1f2';     // Fondo rojizo ultraclaro
-
-            const margin = 40;
-            const contentWidth = doc.page.width - margin * 2;
-            const colWidth = (contentWidth - 20) / 2;
-            const rightCol = margin + colWidth + 20;
-
-            const formatDate = (d: any) => {
-              if (!d) return '-';
-              return new Date(d).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            };
-            const formatNum = (n: any) => {
-              if (n === null || n === undefined) return '0.00';
-              return parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            };
-            const parseMesAnio = (mesAnio: any) => {
-              if (!mesAnio) return { mes: '-', anio: '-' };
-              const [anio, mes] = mesAnio.split('-');
-              const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-              return { mes: meses[parseInt(mes) - 1] || mes, anio };
-            };
-            const { mes, anio } = parseMesAnio(recibo.mes_anio);
-
-            let y = margin;
-
-            // ============================
-            // HEADER Y LOGO
-            // ============================
-            const logoPath = path.join(__dirname, '../assets/logo.png');
-            if (fs.existsSync(logoPath)) {
-              doc.image(logoPath, rightCol, y, { width: 35, height: 35 });
-            } else {
-              doc.circle(rightCol + 15, y + 15, 15).fill(HEADER_BG);
-              doc.fillColor(PRIMARY).fontSize(14).font('Lexend-Bold').text('J', rightCol + 10, y + 9);
-            }
-            doc.fillColor(PRIMARY).fontSize(14).font('Lexend-Bold');
-            doc.text('PARQUE INDUSTRIAL', rightCol + 40, y + 5);
-            doc.fillColor(PRIMARY).fontSize(9).font('Lexend-Medium');
-            doc.text('ANEXO 8 - JICAMARCA', rightCol + 40, y + 20);
-
-              // Datos empresa / Suministro (Izquierda)
-              // Badge Suministro (Rediseño)
-              doc.roundedRect(margin, y, 160, 30, 6).fill('#ffffff').lineWidth(2).strokeColor(PRIMARY).stroke();
-              doc.roundedRect(margin, y, 90, 30, 6).fill(PRIMARY);
-              doc.rect(margin + 85, y, 5, 30).fill(PRIMARY); // Quitar curva interna
-              
-              doc.fillColor('#ffffff').fontSize(10).font('Lexend-Bold').text('SUMINISTRO', margin, y + 10, { width: 90, align: 'center' as const, lineBreak: false });
-              doc.fillColor(PRIMARY).fontSize(16).font('Lexend-Bold').text(recibo.id.toString(), margin + 90, y + 8, { width: 70, align: 'center' as const, lineBreak: false });
-              
-              y += 50;
-
-            doc.fillColor(TEXT).fontSize(11).font('Lexend-Bold').text(recibo.nombre_razonsocial || '-', margin, y, { lineBreak: false });
-            y += 18;
-            doc.fillColor(TEXT).fontSize(9).font('Lexend').text(recibo.direccion || '-', margin, y, { lineBreak: false });
-            y += 16;
-            doc.fillColor(TEXT).font('Lexend-Medium').text(`Tipo de servicio`, margin, y);
-            doc.fillColor(TEXT).font('Lexend').text(`Industrial`, margin + 110, y);
-            y += 16;
-            doc.font('Lexend-Medium').text(`Nro. de medidor`, margin, y);
-            doc.font('Lexend').text(recibo.num_medidor || '-', margin + 110, y, { lineBreak: false });
-            y += 16;
-            doc.font('Lexend-Medium').text(`Recibo Nro 000`, margin, y);
-            doc.font('Lexend').text(recibo.numero_comprobante || recibo.id.toString(), margin + 110, y, { lineBreak: false });
-
-            y += 30;
-            const startColsY = y;
-
-            // ============================
-            // COLUMNA IZQUIERDA
-            // ============================
-            // Detalles del consumo
-            doc.roundedRect(margin, y, colWidth, 18, 4).fill(HEADER_BG);
-            doc.fillColor(PRIMARY).fontSize(9).font('Lexend-Bold').text('DETALLES DEL CONSUMO', margin, y + 5, { width: colWidth, align: 'center' as const, lineBreak: false });
-            y += 22;
-
-            const drawConsumoItem = (label, val, dateStr, isBold = false) => {
-              doc.fillColor(TEXT).fontSize(9).font(isBold ? 'Lexend-Bold' : 'Lexend');
-              doc.text(label, margin + 5, y);
-              doc.text(val, margin + 90, y, { width: 50, align: 'right' as const, lineBreak: false });
-              if(dateStr) doc.fillColor(TEXT).text(dateStr, margin + 145, y, { width: 85, align: 'right' as const, lineBreak: false });
-              doc.moveTo(margin, y + 14).lineTo(margin + colWidth, y + 14).lineWidth(0.5).strokeColor(BORDER).stroke();
-              y += 18;
-            };
-
-            drawConsumoItem('Lectura actual', formatNum(recibo.lectura_actual), formatDate(recibo.periodo_fin), true);
-            drawConsumoItem('Lectura anterior', formatNum(recibo.lectura_anterior), formatDate(recibo.periodo_inicio), true);
-            drawConsumoItem('Consumo Normal', formatNum(recibo.consumo_calculado), '', true);
-            if (parseFloat(recibo.consumo_calculado_punta) > 0) {
-              drawConsumoItem('Consumo Punta', formatNum(recibo.consumo_calculado_punta), '', true);
-            }
-            if (parseFloat(recibo.factor_potencia) > 0) {
-              drawConsumoItem('Factor Potencia', formatNum(recibo.factor_potencia), '', true);
-            }
-            
-            y += 10;
-
-            // Historial
-            doc.roundedRect(margin, y, colWidth, 18, 4).fill(HEADER_BG);
-            doc.fillColor(PRIMARY).fontSize(9).font('Lexend-Bold').text('HISTORIAL DE CONSUMO', margin, y + 5, { width: colWidth, align: 'center' as const, lineBreak: false });
-            y += 22;
-
-            doc.roundedRect(margin, y, colWidth, 120, 6).lineWidth(1).strokeColor(BORDER).stroke();
-            if (historial.length > 0) {
-              const cW = colWidth - 20;
-              const cH = 75;
-              const cy = y + 15;
-              const maxC = Math.max(...historial.map((h: any) => parseFloat(h.consumo_calculado) || 0), 10);
-              const spacing = cW / historial.length;
-              const barW = spacing - 10;
-              
-              historial.forEach((h: any, i: any) => {
-                const val = parseFloat(h.consumo_calculado) || 0;
-                const bH = (val / maxC) * cH;
-                const bX = margin + 10 + (i * spacing) + 5;
-                const bY = cy + cH - bH;
-                
-                doc.rect(bX, bY, barW, bH).fill(HEADER_BG);
-                doc.rect(bX, bY, barW, bH).lineWidth(0.5).strokeColor(PRIMARY).stroke();
-                doc.fillColor(TEXT).fontSize(6).font('Lexend-Bold').text(Math.round(val).toString(), bX - 5, bY - 10, { width: barW + 10, align: 'center' as const, lineBreak: false });
-                
-                const mLabel = h.mes_anio ? h.mes_anio.substring(5) : '';
-                const monthNames: any = { '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic' };
-                doc.text(monthNames[mLabel] || mLabel, bX - 5, cy + cH + 5, { width: barW + 10, align: 'center' as const, lineBreak: false });
-              });
-            } else {
-              doc.fillColor(MUTED).fontSize(9).font('Lexend').text('No hay datos históricos.', margin, y + 50, { width: colWidth, align: 'center' as const });
-            }
-            y += 135;
-
-            // Comunicado
-            doc.roundedRect(margin, y, colWidth, 18, 4).fill(HEADER_BG);
-            doc.fillColor(PRIMARY).fontSize(9).font('Lexend-Bold').text('COMUNICADO', margin, y + 5, { width: colWidth, align: 'center' as const, lineBreak: false });
-            y += 22;
-            doc.roundedRect(margin, y, colWidth, 60, 6).lineWidth(1).strokeColor(BORDER).stroke();
-            y += 75;
-
-            // Fecha de Emision y Pagos
-            doc.roundedRect(margin, y, colWidth, 18, 4).fill(HEADER_BG);
-            doc.fillColor(PRIMARY).fontSize(9).font('Lexend-Bold').text('FECHAS IMPORTANTES', margin, y + 5, { width: colWidth, align: 'center' as const, lineBreak: false });
-            y += 22;
-            
-            // Caja Emisión
-            doc.roundedRect(margin, y, colWidth, 25, 4).lineWidth(1).strokeColor(BORDER).stroke();
-            doc.fillColor(MUTED).fontSize(8).font('Lexend-Medium').text('EMISIÓN:', margin + 10, y + 8, { lineBreak: false });
-            doc.fillColor(TEXT).fontSize(12).font('Lexend-Bold').text(formatDate(recibo.fecha_emision), margin, y + 6, { width: colWidth, align: 'center' as const, lineBreak: false });
-            y += 32;
-
-            // Cajas de Pago y Corte (Rediseño unificado)
-            const fechaCorte = recibo.fecha_vencimiento ? new Date(new Date(recibo.fecha_vencimiento).getTime() + 86400000) : null;
-            
-            doc.roundedRect(margin, y, colWidth, 45, 6).fill(RED_BG).lineWidth(1).strokeColor(RED).stroke();
-            doc.moveTo(margin + colWidth / 2, y + 8).lineTo(margin + colWidth / 2, y + 37).lineWidth(1).strokeColor(RED).stroke();
-            
-            // Pago
-            doc.fillColor(RED).fontSize(8).font('Lexend-Medium').text('ÚLTIMO DÍA DE PAGO', margin, y + 10, { width: colWidth / 2, align: 'center' as const, lineBreak: false });
-            doc.fillColor(RED).fontSize(14).font('Lexend-Bold').text(formatDate(recibo.fecha_vencimiento), margin, y + 22, { width: colWidth / 2, align: 'center' as const, lineBreak: false });
-            
-            // Corte
-            doc.fillColor(RED).fontSize(8).font('Lexend-Medium').text('FECHA DE CORTE', margin + colWidth / 2, y + 10, { width: colWidth / 2, align: 'center' as const, lineBreak: false });
-            doc.fillColor(RED).fontSize(14).font('Lexend-Bold').text(formatDate(fechaCorte), margin + colWidth / 2, y + 22, { width: colWidth / 2, align: 'center' as const, lineBreak: false });
-
-            // ============================
-            // COLUMNA DERECHA
-            // ============================
-            let ry = startColsY;
-
-            doc.roundedRect(rightCol, ry, colWidth, 18, 4).fill(HEADER_BG);
-            doc.fillColor(PRIMARY).fontSize(8).font('Lexend-Bold').text('DETALLES DE LOS IMPORTES FACTURADOS', rightCol, ry + 5, { width: colWidth, align: 'center' as const, lineBreak: false });
-            ry += 25;
-
-            // Mes Facturado
-            doc.fillColor(TEXT).fontSize(10).font('Lexend-Medium').text('Mes Facturado', rightCol, ry + 4);
-            doc.roundedRect(rightCol + 100, ry, colWidth - 100, 20, 4).lineWidth(1).strokeColor(YELLOW_BORDER).stroke();
-            doc.roundedRect(rightCol + 100, ry, 50, 20, 4).fill(YELLOW);
-            doc.fillColor(RED).fontSize(10).font('Lexend-Bold').text(mes, rightCol + 100, ry + 5, { width: 50, align: 'center' as const, lineBreak: false });
-            doc.fillColor(TEXT).text(anio, rightCol + 150, ry + 5, { width: colWidth - 150, align: 'center' as const, lineBreak: false });
-            ry += 30;
-
-            // Headers de Tabla
-            doc.roundedRect(rightCol, ry, colWidth, 18, 4).fill(PRIMARY);
-            doc.fillColor('#ffffff').fontSize(8).font('Lexend-Bold');
-            doc.text('DESCRIPCIÓN', rightCol + 10, ry + 5);
-            doc.text('P.U. (S/.)', rightCol + 120, ry + 5, { lineBreak: false });
-            doc.text('Monto (S/.)', rightCol + 180, ry + 5, { lineBreak: false });
-            ry += 22;
-
-            const drawRow = (desc: any, pu: any, monto: any, isBold = false) => {
-              doc.fillColor(isBold ? PRIMARY : TEXT).fontSize(9).font(isBold ? 'Lexend-Bold' : 'Lexend');
-              doc.text(desc, rightCol + 5, ry, { lineBreak: false });
-              if(pu !== null) doc.text(formatNum(pu), rightCol + 100, ry, { width: 45, align: 'right' as const, lineBreak: false });
-              doc.text(formatNum(monto), rightCol + 160, ry, { width: 65, align: 'right' as const, lineBreak: false });
-              ry += 16;
-            };
-
-            const totalMantenimiento = parseFloat(recibo.cargo_mantenimiento) || 0;
-            const consumoKw = parseFloat(recibo.consumo_calculado) || 0;
-            const tarifaKwh = parseFloat(recibo.tarifa_kwh) || 0;
-            const costoConsumo = parseFloat(recibo.cargo_energia) || 0;
-            
-            const costoConsumoPunta = parseFloat(recibo.cargo_energia_punta) || 0;
-            const costoFactorPotencia = parseFloat(recibo.cargo_factor_potencia) || 0;
-
-            const igv = parseFloat(recibo.igv) || 0;
-            const subtotal = parseFloat(recibo.subtotal) || 0;
-            const total = parseFloat(recibo.total) || 0;
-
-            let cargoFijoVal = 0;
-            let mantenimientoRedVal = 0;
-            let alumbradoVal = 0;
-
-            if (totalMantenimiento >= 229.50) {
-              cargoFijoVal = 45.00;
-              alumbradoVal = 2.50;
-              mantenimientoRedVal = totalMantenimiento - cargoFijoVal - alumbradoVal;
-            } else if (totalMantenimiento > 10) {
-              cargoFijoVal = Math.min(45.00, totalMantenimiento * 0.2);
-              alumbradoVal = Math.min(2.50, totalMantenimiento * 0.01);
-              mantenimientoRedVal = totalMantenimiento - cargoFijoVal - alumbradoVal;
-            } else {
-              cargoFijoVal = totalMantenimiento;
-              mantenimientoRedVal = 0;
-              alumbradoVal = 0;
-            }
-
-            if (mantenimientoRedVal > 0) {
-              // Logic for split 
-            }
-
-            // Now render rows
-            if (cargoFijoVal > 0 && parseFloat(recibo.cargo_fijo) > 0) {
-              drawRow('Cargo Fijo Mensual', null, parseFloat(recibo.cargo_fijo));
-            } else {
-              drawRow('Consumo Energía Activa', tarifaKwh, costoConsumo);
-              
-              const consumoPunta = parseFloat(recibo.consumo_calculado_punta) || 0;
-              const fPotencia = parseFloat(recibo.factor_potencia) || 0;
-              const tarifaPunta = parseFloat(recibo.tarifa_kwh_punta) || 0;
-              const precioFP = parseFloat(recibo.precio_factor_potencia) || (fPotencia > 0 ? costoFactorPotencia / fPotencia : 0);
-              
-              if (consumoPunta > 0) drawRow('Consumo Hora Punta', tarifaPunta, costoConsumoPunta);
-              if (fPotencia > 0) drawRow('Cargo Factor Potencia', precioFP, costoFactorPotencia);
-            }
-            
-            if (parseFloat(recibo.cargo_corte) > 0) drawRow('Corte', null, parseFloat(recibo.cargo_corte));
-            
-            const finalCargoFijo = parseFloat(recibo.cargo_fijo) > 0 ? parseFloat(recibo.cargo_fijo) : cargoFijoVal;
-            if (finalCargoFijo > 0 && parseFloat(recibo.cargo_fijo) === 0) {
-               // Legacy
-               drawRow('Cargo Fijo Mensual', null, finalCargoFijo);
-               if (mantenimientoRedVal > 0) drawRow('Mantenimiento de Red', null, mantenimientoRedVal);
-            } else if (totalMantenimiento > 0) {
-               drawRow('Mantenimiento de Red', null, totalMantenimiento);
-            }
-            if (alumbradoVal > 0 && finalCargoFijo === cargoFijoVal) {
-              drawRow('Alumbrado Público', null, alumbradoVal);
-            }
-            
-            doc.moveTo(rightCol, ry).lineTo(rightCol + colWidth, ry).lineWidth(1).strokeColor(BORDER).stroke();
-            ry += 8;
-            
-            drawRow('SUBTOTAL DEL MES', null, subtotal, true);
-            
-            ry += 8;
-            drawRow('multa x Manipulacio', null, parseFloat(recibo.multa_manipulacion) || 0);
-            drawRow('Multa x Reconexión', null, parseFloat(recibo.multa_reconexion) || 0);
-            drawRow('inst. de medidor', null, parseFloat(recibo.instalacion_medidor) || 0);
-            drawRow('Deuda Pendiente', null, parseFloat(recibo.deuda_pendiente) || 0);
-            
-            ry += 4;
-            drawRow('Deuda pend. por consumo', null, parseFloat(recibo.deuda_consumo) || 0, true);
-            
-            ry += 8;
-            doc.moveTo(rightCol, ry).lineTo(rightCol + colWidth, ry).lineWidth(1).strokeColor(BORDER).stroke();
-            ry += 8;
-            
-            drawRow('DEUDA VENCIDA', null, parseFloat(recibo.deuda_vencida) || 0, true);
-            
-            const descuento = parseFloat(recibo.descuento) || 0;
-            if (descuento > 0) {
-              ry += 4;
-              doc.fillColor('#059669').fontSize(9).font('Lexend-Bold');
-              doc.text('Saldo a Favor Aplicado', rightCol + 5, ry, { lineBreak: false });
-              doc.text('-' + formatNum(descuento), rightCol + 160, ry, { width: 65, align: 'right' as const, lineBreak: false });
-              ry += 16;
-            }
-            
-            ry += 15;
-            doc.fillColor(PRIMARY).fontSize(10).font('Lexend-Bold');
-            doc.text('TOTAL FACTURADO', rightCol + 5, ry);
-            doc.text(formatNum(total), rightCol + 160, ry, { width: 65, align: 'right' as const, lineBreak: false });
-            ry += 30;
-
-              // TOTAL A PAGAR BOX (Rediseño)
-              doc.roundedRect(rightCol, ry, colWidth, 45, 8).fill(PRIMARY);
-              
-              doc.fillColor('#ffffff').fontSize(11).font('Lexend-Bold');
-              doc.text('TOTAL A PAGAR S/.', rightCol + 15, ry + 18);
-              
-              // Caja amarilla insertada para el monto
-              const amtWidth = 100;
-              doc.roundedRect(rightCol + colWidth - amtWidth - 8, ry + 7, amtWidth, 31, 6).fill(YELLOW);
-              doc.fillColor(PRIMARY).fontSize(16).font('Lexend-Bold').text(formatNum(total), rightCol + colWidth - amtWidth - 8, ry + 14, { width: amtWidth, align: 'center' as const, lineBreak: false });
-
-            // ============================
-            // FOOTER (Cuenta bancaria)
-            // ============================
-            const finalY = Math.max(y + 80, ry + 80);
-            
-            doc.roundedRect(margin, finalY, contentWidth, 50, 8).fill(PRIMARY);
-            
-            // Icono decorativo S/.
-            doc.circle(margin + 30, finalY + 25, 12).fill('#ffffff');
-            doc.fillColor(PRIMARY).fontSize(11).font('Lexend-Bold').text('S/.', margin + 23, finalY + 19);
-            
-            // Textos de la cuenta
-            doc.fillColor('#ffffff').fontSize(10).font('Lexend-Medium');
-            doc.text('DEPÓSITOS A LA CUENTA', margin + 55, finalY + 12);
-            
-            doc.fillColor(YELLOW).fontSize(12).font('Lexend-Bold');
-            doc.text(cuentaBancaria || 'BCP: 191-14302973046', margin + 55, finalY + 26);
-            
-            // Disclaimer
-            doc.fillColor('#ffffff').fontSize(9).font('Lexend');
-            doc.text('Conserve su voucher', margin, finalY + 15, { width: contentWidth - 20, align: 'right' as const });
-            doc.text('como comprobante.', margin, finalY + 27, { width: contentWidth - 20, align: 'right' as const });
-
-            doc.end();
-          } catch (error: any) {
-            console.error('Error al generar PDF del recibo:', error);
-            res.status(500).json({ error: 'Error al generar el PDF del recibo' });
-          }
-        };
-    public buildReciboPdfV2 = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
-          const id = Number(req.params.id);
-
-          try {
-            const recibo = await this.reciboRepo.findByIdCompleto(id);
-            if (!recibo) return res.status(404).json({ error: 'Recibo no encontrado' });
-
-            if (req.user?.nombre_rol === RolUsuario.SOCIO && req.user.id !== recibo.usuario_id) {
-              return res.status(403).json({ error: 'No tienes permisos para ver este recibo' });
-            }
-
-            const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 7, recibo.periodo_inicio);
-
-            const doc = new PDFDocument({ size: 'A4', margin: 30 });
-
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=recibo_v2_${recibo.numero_comprobante || id}.pdf`);
-            
-            const fontPath = path.join(__dirname, '../fonts');
-            doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
-            doc.registerFont('Lexend-Medium', path.join(fontPath, 'Lexend-Medium.ttf'));
-            doc.registerFont('Lexend-Bold', path.join(fontPath, 'Lexend-Bold.ttf'));
-
-            doc.pipe(res);
-
-            const logoPath = path.join(__dirname, '../assets/logo.png');
-            const [configRows]: any = await this.db.query('SELECT cuenta_bancaria FROM configuracion LIMIT 1');
-            const cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
-            drawReciboLayoutV2(doc, recibo, historial, logoPath, cuentaBancaria);
-            doc.end();
-          } catch (error: any) {
-            console.error('Error al generar PDF V2 del recibo:', error);
-            res.status(500).json({ error: 'Error al generar el PDF del recibo V2' });
-          }
-        };
-    public buildReciboPdfV3 = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
-          const id = Number(req.params.id);
-
           
 
           try {
@@ -1136,11 +477,20 @@ export class PdfService {
             if (!recibo) return res.status(404).json({ error: 'Recibo no encontrado' });
 
             const historial = await this.reciboRepo.findHistorialConsumo(recibo.medidor_id, 7, recibo.periodo_inicio);
+            let cuentaBancaria = '';
+            try {
+              const [configRows]: any = await this.db.query(`SELECT cuenta_bancaria FROM configuracion_sistema LIMIT 1`);
+              cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
+            } catch (e) {
+              // Ignore error if table doesn't exist
+            }
+
+
 
             const doc = new PDFDocument({ size: 'A4', margin: 32 });
 
             res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', `attachment; filename=recibo_v3_${recibo.numero_comprobante || id}.pdf`);
+            res.setHeader('Content-Disposition', `attachment; filename=recibo_${recibo.numero_comprobante || id}.pdf`);
             
             const fontPath = path.join(__dirname, '../fonts');
             doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
@@ -1151,9 +501,7 @@ export class PdfService {
             doc.pipe(res);
 
             const logoPath = path.join(__dirname, '../assets/logo.png');
-            const [configRows]: any = await this.db.query('SELECT cuenta_bancaria FROM configuracion LIMIT 1');
-            const cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
-            drawReciboLayoutV3(doc, recibo, historial, logoPath, cuentaBancaria);
+            drawReciboLayout(doc, recibo, historial, logoPath, cuentaBancaria);
             doc.end();
 
             // Registrar auditoría
@@ -1168,7 +516,7 @@ export class PdfService {
             res.status(500).json({ error: 'Error al generar el PDF del recibo V3' });
           }
         };
-    public buildAllRecibosPdfV2 = async (req: Request<{}, any, any, IGetRecibosQuery>, res: Response): Promise<any> => {
+    public buildAllRecibosPdf = async (req: Request<{}, any, any, IGetRecibosQuery>, res: Response): Promise<any> => {
           try {
             const filters = {
               year: req.query.year,
@@ -1178,7 +526,7 @@ export class PdfService {
             };
             
             const recibos: any = await this.reciboRepo.findAllCompletos(filters);
-            if (!recibos || recibos.length === 0) {
+            if (!recibos || (recibos as any).length === 0) {
               return res.status(404).json({ error: 'No se encontraron recibos para exportar.' });
             }
 
@@ -1200,15 +548,20 @@ export class PdfService {
             const medidorIds = [...new Set(recibos.map((r: any) => r.medidor_id).filter(Boolean))];
             const historiales = await this.reciboRepo.findHistorialConsumoMultiple(medidorIds);
 
-            const [configRows]: any = await this.db.query('SELECT cuenta_bancaria FROM configuracion LIMIT 1');
-            const cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
+            let cuentaBancaria = '';
+            try {
+              const [configRows]: any = await this.db.query(`SELECT cuenta_bancaria FROM configuracion_sistema LIMIT 1`);
+              cuentaBancaria = configRows[0]?.cuenta_bancaria || '';
+            } catch (e) {
+              // Ignore error if table doesn't exist
+            }
 
             for (let i = 0; i < recibos.length; i++) {
               const recibo = recibos[i];
               const historial = historiales[recibo.medidor_id] || [];
 
               doc.addPage({ size: 'A4', margin: 32 });
-              drawReciboLayoutV3(doc, recibo, historial, logoPath, cuentaBancaria);
+              drawReciboLayout(doc, recibo, historial, logoPath, cuentaBancaria);
             }
 
             doc.end();
@@ -1217,6 +570,177 @@ export class PdfService {
             res.status(500).json({ error: 'Error al generar el PDF masivo V2' });
           }
         };
+    
+    public buildReporteFacturacionPdf = async (req: Request<{}, any, any, any>, res: Response): Promise<any> => {
+          try {
+            const filters = {
+              year: req.query.year,
+              periodo: req.query.periodo,
+              estado: req.query.estado,
+              search: req.query.search
+            };
+            
+            const recibos = await this.reciboRepo.findAllCompletos(filters);
+            if (!recibos || (recibos as any).length === 0) {
+              return res.status(404).json({ error: 'No se encontraron recibos para exportar.' });
+            }
+
+            const doc = new PDFDocument({ size: 'A4', margin: 30, layout: 'landscape', bufferPages: true });
+
+            let periodoText = 'TODOS';
+            if (filters.periodo) periodoText = filters.periodo;
+            else if (filters.year) periodoText = `AÑO ${filters.year}`;
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=Reporte_Facturacion_${periodoText.replace(/ /g, '_')}.pdf`);
+
+            const fontPath = path.join(__dirname, '../fonts');
+            doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
+            doc.registerFont('Lexend-Medium', path.join(fontPath, 'Lexend-Medium.ttf'));
+            doc.registerFont('Lexend-Bold', path.join(fontPath, 'Lexend-Bold.ttf'));
+
+            doc.pipe(res);
+
+            const logoPath = path.join(__dirname, '../assets/logo.png');
+
+            const NAVY      = '#0f172a';
+            const TEAL      = '#0d9488';
+            const WHITE     = '#ffffff';
+            const SLATE_LT  = '#64748b';
+
+            const drawHeader = () => {
+              doc.rect(0, 0, doc.page.width, 6).fill(NAVY);
+              doc.rect(0, 6, doc.page.width, 2).fill(TEAL);
+
+              const logoCenterX = 56;
+              const logoCenterY = 38;
+              const logoRadius = 24;
+
+              if (fs.existsSync(logoPath)) {
+                doc.image(logoPath, logoCenterX - logoRadius, logoCenterY - logoRadius, { width: logoRadius * 2, height: logoRadius * 2 });
+              } else {
+                doc.circle(logoCenterX, logoCenterY, logoRadius).strokeColor(NAVY).lineWidth(2).stroke();
+              }
+
+              const textStartX = 95;
+              doc.fillColor(NAVY).fontSize(18).font('Lexend-Bold');
+              doc.text('PARQUE INDUSTRIAL', textStartX, 22);
+              doc.fillColor(SLATE_LT).fontSize(10).font('Lexend-Medium');
+              doc.text('ANEXO 8 — JICAMARCA', textStartX, 44);
+
+              const titleW = 350;
+              const titleX = doc.page.width - 30 - titleW;
+              doc.fillColor(NAVY).fontSize(14).font('Lexend-Bold');
+              doc.text('REPORTE DE FACTURACIÓN', titleX, 26, { width: titleW, align: 'right' as const });
+
+              doc.fillColor(TEAL).fontSize(11).font('Lexend-Medium');
+              doc.text(`PERIODO: ${periodoText}`, titleX, 44, { width: titleW, align: 'right' as const });
+
+              doc.moveTo(30, 75).lineTo(doc.page.width - 30, 75).lineWidth(1).strokeColor('#e2e8f0').stroke();
+            };
+
+            drawHeader();
+
+            let y = 100;
+            
+            const columns = [
+              { header: 'Nº COMP.', x: 30, w: 80 },
+              { header: 'SOCIO / EMPRESA', x: 120, w: 220 },
+              { header: 'MEDIDOR', x: 350, w: 80 },
+              { header: 'PERIODO', x: 440, w: 70 },
+              { header: 'EMISIÓN', x: 520, w: 65 },
+              { header: 'VENCIMIENTO', x: 595, w: 65 },
+              { header: 'TOTAL (S/)', x: 670, w: 65, align: 'right' as const },
+              { header: 'ESTADO', x: 745, w: 65, align: 'center' as const }
+            ];
+
+            const drawTableHeader = (startY: number) => {
+              doc.roundedRect(30, startY - 5, doc.page.width - 60, 22, 4).fill(NAVY);
+              doc.fillColor(WHITE).fontSize(8).font('Lexend-Bold');
+              columns.forEach(col => {
+                doc.text(col.header, col.x, startY + 1, { width: col.w, align: col.align || 'left' });
+              });
+              return startY + 25;
+            };
+
+            y = drawTableHeader(y);
+            
+            const formatNum = (n: any) => parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+
+            let totalGeneral = 0;
+
+            recibos.forEach((r: any, i: number) => {
+              if (y > doc.page.height - 60) {
+                doc.addPage({ size: 'A4', margin: 30, layout: 'landscape' });
+                drawHeader();
+                y = drawTableHeader(100);
+              }
+
+              if (i % 2 === 0) {
+                doc.rect(30, y - 2, doc.page.width - 60, 16).fill('#f8fafc');
+              }
+              
+              doc.fontSize(8).font('Lexend-Medium');
+
+              doc.fillColor('#334155').text(r.numero_comprobante || '-', columns[0].x, y + 2, { width: columns[0].w, align: columns[0].align || 'left' });
+              
+              const socioName = (r.nombre_razonsocial || '-').substring(0, 45);
+              doc.fillColor(NAVY).font('Lexend-Bold').text(socioName, columns[1].x, y + 2, { width: columns[1].w, align: columns[1].align || 'left' });
+              
+              doc.font('Lexend-Medium');
+              doc.fillColor('#64748b').text(r.num_medidor || r.medidor_num_serie || 'Sin medidor', columns[2].x, y + 2, { width: columns[2].w, align: columns[2].align || 'left' });
+              doc.fillColor('#475569').text(r.mes_anio || r.periodo || '-', columns[3].x, y + 2, { width: columns[3].w, align: columns[3].align || 'left' });
+              doc.fillColor('#64748b').text(formatDate(r.fecha_emision), columns[4].x, y + 2, { width: columns[4].w, align: columns[4].align || 'left' });
+              doc.fillColor('#64748b').text(formatDate(r.fecha_vencimiento), columns[5].x, y + 2, { width: columns[5].w, align: columns[5].align || 'left' });
+              
+              const total = parseFloat(r.total) || 0;
+              totalGeneral += total;
+              doc.fillColor(NAVY).font('Lexend-Bold').text(formatNum(total), columns[6].x, y + 2, { width: columns[6].w, align: columns[6].align || 'left' });
+
+              // Estado Color
+              doc.font('Lexend-Bold');
+              if (r.estado === 'Pagado') doc.fillColor('#10b981');
+              else if (r.estado === 'Pendiente') doc.fillColor('#f59e0b');
+              else if (r.estado === 'Vencido') doc.fillColor('#ef4444');
+              else doc.fillColor('#64748b');
+
+              doc.text(r.estado || '-', columns[7].x, y + 2, { width: columns[7].w, align: columns[7].align || 'left' });
+
+              y += 20;
+            });
+
+            // Resumen Final
+            if (y > doc.page.height - 80) {
+              doc.addPage({ size: 'A4', margin: 30, layout: 'landscape' });
+              drawHeader();
+              y = 100;
+            }
+            
+            y += 10;
+            doc.moveTo(doc.page.width - 250, y).lineTo(doc.page.width - 30, y).lineWidth(1).strokeColor(NAVY).stroke();
+            y += 10;
+
+            doc.fillColor(NAVY).fontSize(10).font('Lexend-Bold');
+            doc.text('TOTAL FACTURADO:', doc.page.width - 250, y, { width: 120, align: 'right' });
+            doc.fillColor('#0f172a').fontSize(12).font('Lexend-Bold');
+            doc.text(`S/ ${formatNum(totalGeneral)}`, doc.page.width - 120, y - 1, { width: 90, align: 'right' });
+
+            // Numeración de páginas
+            const pages = doc.bufferedPageRange();
+            for (let i = 0; i < pages.count; i++) {
+              doc.switchToPage(i);
+              doc.fillColor(SLATE_LT).fontSize(8).font('Lexend-Medium');
+              doc.text(`Página ${i + 1} de ${pages.count}`, 0, doc.page.height - 30, { align: 'center' });
+            }
+
+            doc.end();
+          } catch (error: any) {
+            console.error('Error al generar Reporte Facturacion PDF:', error);
+            res.status(500).json({ error: 'Error al generar el reporte PDF de facturación' });
+          }
+        };
+
     public buildReportePagosPdf = async (req: Request<{}, any, any, IGetPagosQuery>, res: Response): Promise<any> => {
           try {
             const filters = {
@@ -1288,8 +812,8 @@ export class PdfService {
             
             // Columnas: FECHA PAGO, SOCIO, PERIODO, Nº COMP, MÉTODO, OPERACIÓN, MONTO
             const columns = [
-              { header: 'FECHA PAGO', x: 30, w: 90 },
-              { header: 'SOCIO / EMPRESA', x: 130, w: 250 },
+              { header: 'FECHA PAGO', x: 30, w: 115 },
+              { header: 'SOCIO / EMPRESA', x: 150, w: 230 },
               { header: 'PERIODO', x: 390, w: 70 },
               { header: 'Nº COMP.', x: 470, w: 80 },
               { header: 'MÉTODO', x: 560, w: 80 },
@@ -1328,7 +852,13 @@ export class PdfService {
 
               doc.fillColor('#475569').text(formatDate(p.fecha_pago), columns[0].x, y + 2, { width: columns[0].w, align: columns[0].align || 'left' });
               
-              const socioName = (p.socio || '-').substring(0, 45);
+              let socioStr = p.socio || '-';
+              if (p.medidores_str) {
+                socioStr += `\nMedidores: ${p.medidores_str}`;
+              } else {
+                socioStr += `\nSin medidor`;
+              }
+              const socioName = socioStr.substring(0, 80);
               doc.fillColor(NAVY).font('Lexend-Bold').text(socioName, columns[1].x, y + 2, { width: columns[1].w, align: columns[1].align || 'left' });
               doc.font('Lexend-Medium');
               
@@ -1411,8 +941,9 @@ export class PdfService {
             doc.y = 120;
 
             // Configuración de tabla
-            const headers = ['#', 'Documento', 'Nombre / Razón Social', 'Rol', 'Cargo', 'Dirección', 'Estado'];
-            const colWidths = [30, 80, 220, 80, 130, 160, 60];
+            const headers = ['#', 'Documento', 'Nombre / Razón Social', 'Rol', 'Cargo', 'Medidor(es)', 'Estado'];
+            const colWidths = [30, 80, 200, 80, 110, 200, 60];
+
             const startX = 40;
             let currentY = doc.y;
 
@@ -1443,6 +974,16 @@ export class PdfService {
                 currentY += 24;
               }
 
+              let medidoresStr = 'Sin Medidor';
+              if (u.medidores) {
+                try {
+                  const meds = typeof u.medidores === 'string' ? JSON.parse(u.medidores) : u.medidores;
+                  if (meds && meds.length > 0) {
+                    medidoresStr = meds.map((m: any) => `${m.num_serie} (${m.tipo})`).join(', ');
+                  }
+                } catch(e) {}
+              }
+
               const rowHeight = 22;
               
               // Fondo Cebra
@@ -1467,7 +1008,7 @@ export class PdfService {
               doc.fillColor('#475569').font('Helvetica').text(u.cargo_representante || '-', xPos + 8, currentY + 6, { width: colWidths[4] - 16, ellipsis: true });
               xPos += colWidths[4];
 
-              doc.fillColor('#64748B').font('Helvetica').text(u.direccion || '-', xPos + 8, currentY + 6, { width: colWidths[5] - 16, ellipsis: true });
+              doc.fillColor('#64748B').font('Helvetica').text(medidoresStr, xPos + 8, currentY + 6, { width: colWidths[5] - 16, ellipsis: true });
               xPos += colWidths[5];
 
               if (u.es_activo) {
@@ -1491,8 +1032,219 @@ export class PdfService {
 
             doc.end();
           } catch (error) {
-            console.error('Error al exportar PDF:', error);
             res.status(500).json({ error: 'Error al generar el archivo PDF' });
+          }
+        };
+
+    
+    public buildAllTicketsPagoPdf = async (req: Request<{}, any, any, any>, res: Response): Promise<any> => {
+          try {
+            const filters = {
+              year: req.query.year,
+              periodo: req.query.periodo as string,
+              search: req.query.search as string
+            };
+            
+            const pagos: any = await this.pagoRepo.findAllNoLimit(filters);
+            if (!pagos || pagos.length === 0) {
+              return res.status(404).json({ error: 'No se encontraron pagos para exportar.' });
+            }
+
+            const doc = new PDFDocument({ size: 'A5', layout: 'landscape', margin: 32, autoFirstPage: false });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=tickets_pagos_masivos_${filters.periodo || 'todos'}.pdf`);
+            
+            const fontPath = path.join(__dirname, '../fonts');
+            doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
+            doc.registerFont('Lexend-Bold', path.join(fontPath, 'Lexend-Bold.ttf'));
+
+            doc.pipe(res);
+
+            pagos.forEach((pago: any) => {
+              doc.addPage();
+              
+              const primaryColor = '#1e3a8a';
+              const secondaryColor = '#64748b';
+              const blackColor = '#0f172a';
+              
+              const startX = 32;
+              let y = 32;
+              const colWidth = 530; 
+
+              // Header
+              doc.rect(startX, y, colWidth, 40).fill(primaryColor);
+              doc.font('Lexend-Bold').fontSize(16).fillColor('#ffffff')
+                .text('TICKET DE PAGO', startX + 15, y + 12);
+                
+              doc.fontSize(10).text(`COMPROBANTE: ${pago.numero_comprobante || 'S/N'}`, startX, y + 15, { width: colWidth - 15, align: 'right' });
+              
+              y += 50;
+
+              // Datos del Parque
+              doc.font('Lexend-Bold').fontSize(14).fillColor(primaryColor)
+                .text('PARQUE INDUSTRIAL', startX, y);
+              y += 18;
+              doc.font('Lexend').fontSize(9).fillColor(secondaryColor)
+                .text('ANEXO 8 - JICAMARCA', startX, y);
+              
+              doc.font('Lexend-Bold').fontSize(10).fillColor(blackColor)
+                .text(`FECHA: ${new Date(pago.fecha_pago).toLocaleString('es-PE')}`, startX, y - 18, { width: colWidth, align: 'right' });
+              doc.font('Lexend').fontSize(9).fillColor(secondaryColor)
+                .text(`OPERACIÓN: ${pago.numero_operacion || '-'}`, startX, y, { width: colWidth, align: 'right' });
+
+              y += 30;
+              doc.moveTo(startX, y).lineTo(startX + colWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke();
+              y += 20;
+
+              // Datos del Socio
+              doc.font('Lexend-Bold').fontSize(11).fillColor(primaryColor).text('DATOS DEL SOCIO', startX, y);
+              y += 20;
+              doc.font('Lexend-Bold').fontSize(10).fillColor(blackColor).text('Nombre/Razón Social:', startX, y);
+              doc.font('Lexend').text(pago.socio || '-', startX + 130, y);
+              y += 18;
+              doc.font('Lexend-Bold').text('Medidor:', startX, y);
+              doc.font('Lexend').text(pago.medidor_num_serie || 'Sin Medidor', startX + 130, y);
+              
+              y += 30;
+              doc.moveTo(startX, y).lineTo(startX + colWidth, y).strokeColor('#e2e8f0').stroke();
+              y += 20;
+
+              // Detalle de Pago
+              doc.font('Lexend-Bold').fontSize(11).fillColor(primaryColor).text('DETALLE DEL PAGO', startX, y);
+              y += 20;
+              doc.font('Lexend-Bold').fontSize(10).fillColor(blackColor).text('Periodo Facturado:', startX, y);
+              doc.font('Lexend').text(pago.periodo || '-', startX + 130, y);
+              y += 18;
+              doc.font('Lexend-Bold').text('Método de Pago:', startX, y);
+              doc.font('Lexend').text(pago.metodo_pago || '-', startX + 130, y);
+              y += 18;
+              doc.font('Lexend-Bold').text('Monto Total Recibo:', startX, y);
+              doc.font('Lexend').text(`S/ ${parseFloat(pago.recibo_total || '0').toFixed(2)}`, startX + 130, y);
+              
+              y += 30;
+              
+              // Total Box
+              doc.rect(startX + 300, y, 230, 45).fill('#f1f5f9');
+              doc.font('Lexend-Bold').fontSize(12).fillColor(secondaryColor)
+                .text('MONTO PAGADO:', startX + 315, y + 15);
+              doc.font('Lexend-Bold').fontSize(16).fillColor(primaryColor)
+                .text(`S/ ${parseFloat(pago.monto_pagado || '0').toFixed(2)}`, startX + 315, y + 13, { width: 200, align: 'right' });
+
+              // Footer
+              y = 350;
+              doc.font('Lexend').fontSize(9).fillColor(secondaryColor)
+                .text('¡Gracias por su puntualidad! Este es un comprobante de pago válido.', startX, y, { width: colWidth, align: 'center' });
+            });
+
+            doc.end();
+          } catch (error) {
+            console.error('Error al generar Tickets Masivos PDF:', error);
+            res.status(500).json({ error: 'Error al generar los tickets masivos' });
+          }
+        };
+
+    public buildTicketPagoPdf = async (req: Request<{ id: string }>, res: Response): Promise<any> => {
+          const pagoId = parseInt(req.params.id);
+          try {
+            // Obtener datos del pago
+            const [pagos]: any = await this.db.query(`
+              SELECT p.*, r.numero_comprobante, r.total as recibo_total,
+                     u.nombre_razonsocial as socio, u.documento_identidad,
+                     pf.mes_anio as periodo, m.num_serie as medidor_num_serie
+              FROM pago p
+              INNER JOIN recibo r ON p.recibo_id = r.id
+              INNER JOIN usuario u ON r.usuario_id = u.id
+              INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
+              LEFT JOIN lectura l ON r.lectura_id = l.id
+              LEFT JOIN medidor m ON l.medidor_id = m.id
+              WHERE p.id = ? AND p.deleted_at IS NULL
+            `, [pagoId]);
+
+            if (pagos.length === 0) {
+              return res.status(404).json({ error: 'Pago no encontrado' });
+            }
+
+            const pago = pagos[0];
+
+            // Formato ticket: Ancho típico 80mm (~226 puntos)
+            const width = 226;
+            const doc = new PDFDocument({
+              size: [width, 600], 
+              margin: 15
+            });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `inline; filename=ticket_pago_${pago.id}.pdf`);
+            doc.pipe(res);
+
+            const fontPath = path.join(__dirname, '../fonts');
+            doc.registerFont('Lexend', path.join(fontPath, 'Lexend-Regular.ttf'));
+            doc.registerFont('Lexend-Bold', path.join(fontPath, 'Lexend-Bold.ttf'));
+
+            let y = 15;
+
+            doc.font('Lexend-Bold').fontSize(12).text('PARQUE INDUSTRIAL', 0, y, { align: 'center', width });
+            y += 14;
+            doc.font('Lexend').fontSize(9).text('ANEXO 8 - JICAMARCA', 0, y, { align: 'center', width });
+            y += 18;
+
+            doc.moveTo(15, y).lineTo(width - 15, y).dash(2, { space: 2 }).strokeColor('#000').lineWidth(1).stroke();
+            doc.undash();
+            y += 8;
+
+            doc.font('Lexend-Bold').fontSize(11).text('TICKET DE PAGO', 0, y, { align: 'center', width });
+            y += 16;
+            doc.font('Lexend').fontSize(8).text(`Nº Operación: ${pago.numero_operacion || pago.id}`, 0, y, { align: 'center', width });
+            y += 14;
+            doc.text(`Fecha: ${new Date(pago.fecha_pago).toLocaleString('es-PE')}`, 0, y, { align: 'center', width });
+            y += 18;
+
+            doc.moveTo(15, y).lineTo(width - 15, y).dash(2, { space: 2 }).stroke();
+            doc.undash();
+            y += 8;
+
+            const drawRow = (lbl: string, val: string) => {
+              doc.font('Lexend').fontSize(8).text(lbl, 15, y, { width: 80 });
+              doc.font('Lexend-Bold').text(val, 95, y, { width: width - 110, align: 'right' });
+              y += Math.max(doc.heightOfString(lbl, { width: 80 }), doc.heightOfString(val, { width: width - 110 })) + 2;
+            };
+
+            drawRow('Socio:', pago.socio);
+            if (pago.documento_identidad) drawRow('DNI/RUC:', pago.documento_identidad);
+            if (pago.medidor_num_serie) drawRow('Medidor:', pago.medidor_num_serie);
+            drawRow('Recibo Nº:', pago.numero_comprobante || '-');
+            drawRow('Periodo:', pago.periodo || '-');
+            drawRow('Método:', pago.metodo_pago);
+            
+            y += 6;
+            doc.moveTo(15, y).lineTo(width - 15, y).dash(2, { space: 2 }).stroke();
+            doc.undash();
+            y += 8;
+
+            doc.font('Lexend-Bold').fontSize(10).text('MONTO PAGADO:', 15, y);
+            doc.fontSize(14).text(`S/ ${parseFloat(pago.monto_pagado).toFixed(2)}`, 15, y + 14, { align: 'right', width: width - 30 });
+            y += 36;
+
+            doc.moveTo(15, y).lineTo(width - 15, y).dash(2, { space: 2 }).stroke();
+            doc.undash();
+            y += 10;
+
+            doc.font('Lexend').fontSize(7).text('Conserve este ticket como comprobante de su pago.', 15, y, { align: 'center', width: width - 30 });
+            y += 15;
+            doc.text('¡Gracias por su puntualidad!', 15, y, { align: 'center', width: width - 30 });
+            
+            doc.end();
+
+            await this.auditoriaRepo.registrarDescarga({
+              usuario_id: req.user.id,
+              tipo_documento: 'Ticket de Pago PDF',
+              referencia_id: pagoId,
+              detalles: `Descarga de ticket de pago ${pagoId}`
+            });
+          } catch (error: any) {
+            console.error('Error al generar Ticket de Pago:', error);
+            res.status(500).json({ error: 'Error al generar Ticket de Pago' });
           }
         };
 }

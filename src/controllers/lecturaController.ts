@@ -169,9 +169,9 @@ export class LecturaController {
               const existing = existingRows[0];
               // Only set original values if they haven't been set yet (first modification)
               if (existing.lectura_actual_original === null) {
-                req.body.lectura_actual_original = existing.lectura_actual;
-                req.body.lectura_actual_punta_original = existing.lectura_actual_punta;
-                req.body.factor_potencia_original = existing.factor_potencia;
+                (req.body as any).lectura_actual_original = existing.lectura_actual;
+                (req.body as any).lectura_actual_punta_original = existing.lectura_actual_punta;
+                (req.body as any).factor_potencia_original = existing.factor_potencia;
               }
             }
 

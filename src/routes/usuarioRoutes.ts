@@ -18,11 +18,12 @@ export class UsuarioRoutes {
         this.router.use(this.authMiddleware.authenticateToken);
         // Permitimos a Admin y Operario gestionar usuarios (el operario necesita ver y registrar)
         this.router.use(this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]));
-        
+
         this.router.get('/stats', this.usuarioController.getUsuariosStats);
         this.router.get('/', this.usuarioController.getUsuarios);
         this.router.get('/export/excel', this.usuarioController.exportExcel);
         this.router.get('/export/pdf', this.usuarioController.exportPdf);
+        this.router.post('/:id/reset-password', this.authMiddleware.authorizeRole([RolUsuario.ADMIN]), this.usuarioController.resetPassword);
         this.router.post('/bulk', this.usuarioController.createUsuariosBulk);
         this.router.post('/', this.validatorsMiddleware.createUsuarioValidator, this.usuarioController.createUsuario);
         this.router.put('/:id', this.validatorsMiddleware.updateUsuarioValidator, this.usuarioController.updateUsuario);

@@ -18,6 +18,7 @@ export class LecturaRepository {
           const [rows]: any = await this.db.query(`
     SELECT l.id, l.lectura_anterior, l.lectura_actual, l.consumo_calculado, 
            l.lectura_anterior_punta, l.lectura_actual_punta, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia,
+           l.max_demanda_fuera_punta, l.max_demanda_punta,
            l.fecha_registro, l.estado, l.justificacion,
            l.es_cambio_medidor, l.lectura_final_viejo, l.lectura_inicial_nuevo,
            l.lectura_final_viejo_punta, l.lectura_inicial_nuevo_punta,
@@ -41,6 +42,7 @@ export class LecturaRepository {
           const [rows]: any = await this.db.query(`
     SELECT l.id, l.lectura_anterior, l.lectura_actual, l.consumo_calculado, 
            l.lectura_anterior_punta, l.lectura_actual_punta, l.consumo_calculado_punta, l.factor_potencia,
+           l.max_demanda_fuera_punta, l.max_demanda_punta,
            l.fecha_registro, l.estado, l.justificacion,
            l.es_cambio_medidor, l.lectura_final_viejo, l.lectura_inicial_nuevo,
            l.lectura_final_viejo_punta, l.lectura_inicial_nuevo_punta,
@@ -59,6 +61,7 @@ export class LecturaRepository {
             medidor_id, operario_id, periodo_id, 
             lectura_anterior, lectura_actual, 
             lectura_anterior_punta, lectura_actual_punta, factor_potencia, precio_factor_potencia,
+            max_demanda_fuera_punta, max_demanda_punta,
             estado,
             consumo_calculado, es_cambio_medidor, 
             lectura_final_viejo, lectura_inicial_nuevo,
@@ -69,16 +72,18 @@ export class LecturaRepository {
       medidor_id, operario_id, periodo_id, 
       lectura_anterior, lectura_actual, 
       lectura_anterior_punta, lectura_actual_punta, factor_potencia, precio_factor_potencia,
+      max_demanda_fuera_punta, max_demanda_punta,
       estado,
       consumo_calculado, es_cambio_medidor, 
       lectura_final_viejo, lectura_inicial_nuevo,
       lectura_final_viejo_punta, lectura_inicial_nuevo_punta
     ) 
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               medidor_id, operario_id, periodo_id, 
               lectura_anterior, lectura_actual, 
               lectura_anterior_punta || 0, lectura_actual_punta || 0, factor_potencia || 0, precio_factor_potencia || 0,
+              max_demanda_fuera_punta || 0, max_demanda_punta || 0,
               estado || 'Validado',
               consumo_calculado || 0, 
               es_cambio_medidor || false, 
@@ -94,6 +99,7 @@ export class LecturaRepository {
           const { 
             lectura_anterior, lectura_actual, 
             lectura_anterior_punta, lectura_actual_punta, factor_potencia,
+            max_demanda_fuera_punta, max_demanda_punta,
             estado, justificacion,
             consumo_calculado, es_cambio_medidor, 
             lectura_final_viejo, lectura_inicial_nuevo,
@@ -104,6 +110,7 @@ export class LecturaRepository {
             `UPDATE lectura 
              SET lectura_anterior = ?, lectura_actual = ?, 
                  lectura_anterior_punta = ?, lectura_actual_punta = ?, factor_potencia = ?,
+                 max_demanda_fuera_punta = ?, max_demanda_punta = ?,
                  estado = ?, justificacion = ?,
                  consumo_calculado = ?, es_cambio_medidor = ?, 
                  lectura_final_viejo = ?, lectura_inicial_nuevo = ?,
@@ -113,6 +120,7 @@ export class LecturaRepository {
             [
               lectura_anterior, lectura_actual, 
               lectura_anterior_punta || 0, lectura_actual_punta || 0, factor_potencia || 0,
+              max_demanda_fuera_punta || 0, max_demanda_punta || 0,
               estado, justificacion,
               consumo_calculado, es_cambio_medidor || false, 
               lectura_final_viejo || null, lectura_inicial_nuevo || null,
@@ -134,7 +142,7 @@ export class LecturaRepository {
         };
     public findByMedidorAndPeriodo = async (medidor_id: number, periodo_id: number): Promise<ILectura | undefined> => {
           const [rows]: any = await this.db.query(
-            'SELECT id, lectura_anterior, lectura_actual, consumo_calculado, lectura_anterior_punta, lectura_actual_punta, consumo_calculado_punta, factor_potencia, estado FROM lectura WHERE medidor_id = ? AND periodo_id = ? AND deleted_at IS NULL LIMIT 1',
+            'SELECT id, lectura_anterior, lectura_actual, consumo_calculado, lectura_anterior_punta, lectura_actual_punta, consumo_calculado_punta, factor_potencia, max_demanda_fuera_punta, max_demanda_punta, estado FROM lectura WHERE medidor_id = ? AND periodo_id = ? AND deleted_at IS NULL LIMIT 1',
             [medidor_id, periodo_id]
           );
           return rows[0];

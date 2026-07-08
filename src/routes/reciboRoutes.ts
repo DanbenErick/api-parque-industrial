@@ -18,8 +18,8 @@ export class ReciboRoutes {
         // Socios can only see their own receipts
         this.router.get('/usuario/:usuarioId', this.reciboController.getRecibosByUsuario);
         
-        // Export all receipts as PDF V2
-        this.router.get('/export/all-v2', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportAllRecibosPdfV2);
+        // Export all receipts as PDF
+        this.router.get('/export/all', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportAllRecibosPdfV2);
         
         // Export all receipts as Excel and PDF
         this.router.get('/reporte/pdf', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.exportReportePdf);
@@ -28,15 +28,6 @@ export class ReciboRoutes {
         
         // Export single receipt as PDF
         this.router.get('/:id/pdf', this.reciboController.exportReciboPdf);
-        
-        // Export single receipt as PDF V2 (Rediseñado)
-        this.router.get('/:id/pdf-v2', this.reciboController.exportReciboPdfV2);
-        
-        // Export single receipt as PDF V3 (Premium)
-        this.router.get('/:id/pdf-v3', this.reciboController.exportReciboPdfV3);
-        
-        
-        
         // Get global stats for KPIs
         this.router.get('/stats/global', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.getRecibosStats);
         
@@ -57,6 +48,9 @@ export class ReciboRoutes {
         
         // Edit receipt fees
         this.router.put('/:id/cargos', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.updateCargos);
+        
+        // Historial de refacturaciones
+        this.router.get('/:id/historial', this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]), this.reciboController.getHistorial);
     }
 
     public getRouter(): Router {
