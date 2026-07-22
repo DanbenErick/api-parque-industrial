@@ -89,8 +89,8 @@ export class UsuarioController {
       medidores
     } = req.body;
 
-    if (!rol_id || !documento_identidad || !nombre_razonsocial || !clave_acceso || !cargo_representante || !telefono || !correo || !direccion) {
-      return res.status(400).json({ error: 'Todos los campos obligatorios (incluyendo teléfono, correo, dirección y representante) deben ser enviados.' });
+    if (!rol_id || !documento_identidad || !nombre_razonsocial || !clave_acceso || !cargo_representante || !telefono || !direccion) {
+      return res.status(400).json({ error: 'Todos los campos obligatorios (incluyendo teléfono, dirección y representante) deben ser enviados.' });
     }
 
     // Un socio puede no tener medidor registrado todavía
@@ -125,7 +125,7 @@ export class UsuarioController {
 
       res.status(201).json({ message: 'Usuario creado exitosamente', id: insertId });
     } catch (error) {
-      if (!rol_id || !documento_identidad || !nombre_razonsocial || !cargo_representante || !telefono || !correo || !direccion) {
+      if (!rol_id || !documento_identidad || !nombre_razonsocial || !cargo_representante || !telefono || !direccion) {
         return res.status(400).json({ error: 'Todos los campos obligatorios deben ser enviados.' });
       }
       if ((error as any).code === 'ER_DUP_ENTRY') {
@@ -158,7 +158,7 @@ export class UsuarioController {
     for (let i = 0; i < usuarios.length; i++) {
       const u = usuarios[i];
       try {
-        if (!u.documento_identidad || !u.nombre_razonsocial || !u.clave_acceso || !u.cargo_representante || !u.telefono || !u.correo) {
+        if (!u.documento_identidad || !u.nombre_razonsocial || !u.clave_acceso || !u.cargo_representante || !u.telefono) {
           throw new Error('Faltan campos obligatorios en el registro.');
         }
 
