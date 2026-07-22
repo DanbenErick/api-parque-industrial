@@ -115,7 +115,9 @@ export class UsuarioController {
               usuario_id: insertId,
               num_serie: m.num_serie,
               tipo: m.tipo || 'Normal',
-              operativo: true
+              operativo: true,
+              lectura_inicial: m.lectura_inicial || 0,
+              lectura_inicial_punta: m.lectura_inicial_punta || 0
             });
           }
         }
@@ -295,7 +297,9 @@ export class UsuarioController {
               usuario_id: id,
               num_serie: nm.num_serie,
               tipo: nm.tipo || 'Normal',
-              operativo: true
+              operativo: true,
+              lectura_inicial: nm.lectura_inicial,
+              lectura_inicial_punta: nm.lectura_inicial_punta
             });
           } else if (nm.num_serie && nm.num_serie.trim() !== '') {
             // Crear nuevo medidor
@@ -303,7 +307,9 @@ export class UsuarioController {
               usuario_id: id,
               num_serie: nm.num_serie,
               tipo: nm.tipo || 'Normal',
-              operativo: true
+              operativo: true,
+              lectura_inicial: nm.lectura_inicial || 0,
+              lectura_inicial_punta: nm.lectura_inicial_punta || 0
             });
           }
         }

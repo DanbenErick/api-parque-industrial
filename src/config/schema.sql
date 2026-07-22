@@ -112,6 +112,8 @@ CREATE TABLE `medidor` (
   `deleted_at` timestamp NULL DEFAULT NULL,
   `cobro_instalacion_pendiente` tinyint(1) DEFAULT '1',
   `tipo` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Normal' COMMENT 'Normal o Tiempo Real',
+  `lectura_inicial` decimal(12,2) DEFAULT '0.00' COMMENT 'Lectura base al registrar el medidor',
+  `lectura_inicial_punta` decimal(12,2) DEFAULT '0.00' COMMENT 'Lectura base punta al registrar el medidor',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_medidor_serie` (`num_serie`),
   KEY `idx_medidor_usuario` (`usuario_id`),

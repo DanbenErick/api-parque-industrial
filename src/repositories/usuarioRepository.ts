@@ -54,7 +54,7 @@ export class UsuarioRepository {
            u.telefono, u.correo, u.direccion, u.es_activo, u.ultimo_acceso, u.actividad_rubro, u.saldo_a_favor,
            r.nombre_rol, r.id as rol_id,
            (
-             SELECT CONCAT('[', GROUP_CONCAT(JSON_OBJECT('id', id, 'num_serie', num_serie, 'tipo', tipo) SEPARATOR ','), ']')
+             SELECT CONCAT('[', GROUP_CONCAT(JSON_OBJECT('id', id, 'num_serie', num_serie, 'tipo', tipo, 'lectura_inicial', lectura_inicial, 'lectura_inicial_punta', lectura_inicial_punta) SEPARATOR ','), ']')
              FROM medidor 
              WHERE usuario_id = u.id AND deleted_at IS NULL
            ) as medidores,
@@ -179,7 +179,7 @@ export class UsuarioRepository {
            u.telefono, u.correo, u.direccion, u.es_activo, u.ultimo_acceso,
            r.nombre_rol, r.id as rol_id,
            (
-             SELECT CONCAT('[', GROUP_CONCAT(JSON_OBJECT('id', id, 'num_serie', num_serie, 'tipo', tipo) SEPARATOR ','), ']')
+             SELECT CONCAT('[', GROUP_CONCAT(JSON_OBJECT('id', id, 'num_serie', num_serie, 'tipo', tipo, 'lectura_inicial', lectura_inicial, 'lectura_inicial_punta', lectura_inicial_punta) SEPARATOR ','), ']')
              FROM medidor 
              WHERE usuario_id = u.id AND deleted_at IS NULL
            ) as medidores

@@ -8,6 +8,8 @@ interface ICreateMedidorBody {
   num_serie: string;
   tipo: string;
   operativo?: boolean;
+  lectura_inicial?: number;
+  lectura_inicial_punta?: number;
 }
 
 interface IUpdateMedidorBody {
@@ -15,6 +17,8 @@ interface IUpdateMedidorBody {
   num_serie?: string;
   tipo?: string;
   operativo?: boolean;
+  lectura_inicial?: number;
+  lectura_inicial_punta?: number;
 }
 
 export class MedidorController {

@@ -24,9 +24,10 @@ export class MedidorRepository {
 
           const [rows]: any = await this.db.query(`
     SELECT m.id, m.num_serie, m.tipo, m.operativo, m.usuario_id,
+           m.lectura_inicial, m.lectura_inicial_punta,
            u.nombre_razonsocial as propietario, u.documento_identidad, u.direccion,
-           COALESCE(ul.lectura_actual, 0) as ultima_lectura,
-           COALESCE(ul.lectura_actual_punta, 0) as ultima_lectura_punta
+           COALESCE(ul.lectura_actual, m.lectura_inicial, 0) as ultima_lectura,
+           COALESCE(ul.lectura_actual_punta, m.lectura_inicial_punta, 0) as ultima_lectura_punta
     ${baseQuery}
     ORDER BY u.nombre_razonsocial ASC
     LIMIT 50
@@ -42,20 +43,22 @@ export class MedidorRepository {
           return rows;
         };
     public create = async (medidor: any) => {
-          const { usuario_id, num_serie, tipo, operativo } = medidor;
+          const { usuario_id, num_serie, tipo, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
           const [result]: any = await this.db.query(
-            `INSERT INTO medidor (usuario_id, num_serie, tipo, operativo) VALUES (?, ?, ?, ?)`,
-            [usuario_id, num_serie, tipo || 'Normal', operativo !== undefined ? operativo : true]
+            `INSERT INTO medidor (usuario_id, num_serie, tipo, operativo, lectura_inicial, lectura_inicial_punta) VALUES (?, ?, ?, ?, ?, ?)`,
+            [usuario_id, num_serie, tipo || 'Normal', operativo !== undefined ? operativo : true, lectura_inicial || 0, lectura_inicial_punta || 0]
           );
           return result.insertId;
         };
     public update = async (id: any, medidor: any) => {
-          const { usuario_id, num_serie, tipo, operativo } = medidor;
+          const { usuario_id, num_serie, tipo, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
           const [result]: any = await this.db.query(
             `UPDATE medidor 
-     SET usuario_id = ?, num_serie = ?, tipo = ?, operativo = ?
-     WHERE id = ? AND deleted_at IS NULL`,
-            [usuario_id, num_serie, tipo || 'Normal', operativo, id]
+             SET usuario_id = ?, num_serie = ?, tipo = ?, operativo = ?,
+                 lectura_inicial = COALESCE(?, lectura_inicial),
+                 lectura_inicial_punta = COALESCE(?, lectura_inicial_punta)
+             WHERE id = ? AND deleted_at IS NULL`,
+            [usuario_id, num_serie, tipo || 'Normal', operativo, lectura_inicial, lectura_inicial_punta, id]
           );
           return result.affectedRows;
         };
