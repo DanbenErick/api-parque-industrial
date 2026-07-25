@@ -36,29 +36,29 @@ export class MedidorRepository {
         };
     public findByUsuario = async (usuarioId: any) => {
           const [rows]: any = await this.db.query(`
-    SELECT m.id, m.num_serie, m.tipo, m.operativo
+    SELECT m.id, m.num_serie, m.tipo, m.direccion, m.operativo, m.lectura_inicial, m.lectura_inicial_punta
     FROM medidor m
     WHERE m.usuario_id = ? AND m.deleted_at IS NULL
   `, [usuarioId]);
           return rows;
         };
     public create = async (medidor: any) => {
-          const { usuario_id, num_serie, tipo, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
+          const { usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
           const [result]: any = await this.db.query(
-            `INSERT INTO medidor (usuario_id, num_serie, tipo, operativo, lectura_inicial, lectura_inicial_punta) VALUES (?, ?, ?, ?, ?, ?)`,
-            [usuario_id, num_serie, tipo || 'Normal', operativo !== undefined ? operativo : true, lectura_inicial || 0, lectura_inicial_punta || 0]
+            `INSERT INTO medidor (usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [usuario_id, num_serie, tipo || 'Normal', direccion || 'Sin dirección', operativo !== undefined ? operativo : true, lectura_inicial || 0, lectura_inicial_punta || 0]
           );
           return result.insertId;
         };
     public update = async (id: any, medidor: any) => {
-          const { usuario_id, num_serie, tipo, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
+          const { usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
           const [result]: any = await this.db.query(
             `UPDATE medidor 
-             SET usuario_id = ?, num_serie = ?, tipo = ?, operativo = ?,
+             SET usuario_id = ?, num_serie = ?, tipo = ?, direccion = ?, operativo = ?,
                  lectura_inicial = COALESCE(?, lectura_inicial),
                  lectura_inicial_punta = COALESCE(?, lectura_inicial_punta)
              WHERE id = ? AND deleted_at IS NULL`,
-            [usuario_id, num_serie, tipo || 'Normal', operativo, lectura_inicial, lectura_inicial_punta, id]
+            [usuario_id, num_serie, tipo || 'Normal', direccion || 'Sin dirección', operativo, lectura_inicial, lectura_inicial_punta, id]
           );
           return result.affectedRows;
         };

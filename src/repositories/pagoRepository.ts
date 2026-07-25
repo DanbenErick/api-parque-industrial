@@ -108,7 +108,7 @@ export class PagoRepository {
       return rows;
     };
     public createConTransaccion = async (pagoData: any, usuario_id: number): Promise<void> => {
-          const { recibo_id, monto_pagado, metodo_pago, numero_operacion } = pagoData;
+          const { recibo_id, monto_pagado, metodo_pago, numero_operacion, fecha_pago } = pagoData;
 
           const connection = await this.db.getConnection();
           await connection.beginTransaction();
@@ -159,11 +159,19 @@ export class PagoRepository {
             // 2. Registrar el pago
             await connection.query('SET @current_user_id = ?', [usuario_id]);
 
-            await connection.query(
-              `INSERT INTO pago (recibo_id, monto_pagado, metodo_pago, numero_operacion, estado_validacion)
-       VALUES (?, ?, ?, ?, 'Confirmado')`,
-              [recibo_id, monto_pagado, metodo_pago, numero_operacion || null]
-            );
+            if (fecha_pago) {
+              await connection.query(
+                `INSERT INTO pago (recibo_id, monto_pagado, metodo_pago, numero_operacion, fecha_pago, estado_validacion)
+         VALUES (?, ?, ?, ?, ?, 'Confirmado')`,
+                [recibo_id, monto_pagado, metodo_pago, numero_operacion || null, fecha_pago]
+              );
+            } else {
+              await connection.query(
+                `INSERT INTO pago (recibo_id, monto_pagado, metodo_pago, numero_operacion, estado_validacion)
+         VALUES (?, ?, ?, ?, 'Confirmado')`,
+                [recibo_id, monto_pagado, metodo_pago, numero_operacion || null]
+              );
+            }
 
             // 3. Actualizar estado del recibo
             const nuevoEstado = (saldoActual - monto) <= 0.02 ? EstadoRecibo.PAGADO : EstadoRecibo.PAGO_PARCIAL;

@@ -5,7 +5,12 @@ import { IUsuario } from '../types';
 export class AuthMiddleware {
     public authenticateToken = (req: Request, res: Response, next: NextFunction) => {
           const authHeader = req.headers['authorization'];
-          const token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer <token>"
+          let token = authHeader && authHeader.split(' ')[1]; // Format: "Bearer <token>"
+
+          // Allow token in query params for file downloads (like PDF)
+          if (!token && req.query.token) {
+            token = req.query.token as string;
+          }
 
           if (!token) {
             return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });

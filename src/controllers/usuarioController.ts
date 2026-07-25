@@ -297,6 +297,7 @@ export class UsuarioController {
               usuario_id: id,
               num_serie: nm.num_serie,
               tipo: nm.tipo || 'Normal',
+              direccion: nm.direccion || 'Sin dirección',
               operativo: true,
               lectura_inicial: nm.lectura_inicial,
               lectura_inicial_punta: nm.lectura_inicial_punta
@@ -307,6 +308,7 @@ export class UsuarioController {
               usuario_id: id,
               num_serie: nm.num_serie,
               tipo: nm.tipo || 'Normal',
+              direccion: nm.direccion || 'Sin dirección',
               operativo: true,
               lectura_inicial: nm.lectura_inicial || 0,
               lectura_inicial_punta: nm.lectura_inicial_punta || 0

@@ -39,7 +39,9 @@ export class ReciboRepository {
            r.subtotal, r.igv, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
            (r.total - COALESCE(pagos.total_pagado, 0)) as saldo_pendiente,
            u.nombre_razonsocial as socio, u.documento_identidad, u.telefono,
-           pf.mes_anio as periodo, m.num_serie as medidor_num_serie, m.tipo as medidor_tipo
+           pf.mes_anio as periodo, m.num_serie as medidor_num_serie, m.tipo as medidor_tipo,
+           l.consumo_calculado as consumo_kwh, l.consumo_calculado_punta as consumo_kwh_punta,
+           pf.tarifa_kwh, pf.tarifa_kwh_punta
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
@@ -185,11 +187,18 @@ export class ReciboRepository {
           const [rows] = await this.db.query(`
     SELECT r.id, r.numero_comprobante, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
            pf.mes_anio as periodo, m.num_serie as medidor_num_serie, m.tipo as medidor_tipo,
-           l.consumo_calculado, l.consumo_calculado_punta, r.subtotal
+           l.consumo_calculado, l.consumo_calculado_punta, r.subtotal,
+           (r.total - COALESCE(pagos.total_pagado, 0)) as saldo_restante
     FROM recibo r
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
     LEFT JOIN lectura l ON r.lectura_id = l.id
     LEFT JOIN medidor m ON l.medidor_id = m.id
+    LEFT JOIN (
+      SELECT recibo_id, SUM(monto_pagado) as total_pagado 
+      FROM pago 
+      WHERE deleted_at IS NULL 
+      GROUP BY recibo_id
+    ) pagos ON pagos.recibo_id = r.id
     WHERE r.usuario_id = ? AND r.deleted_at IS NULL
     ORDER BY r.fecha_vencimiento DESC
   `, [usuarioId]);
