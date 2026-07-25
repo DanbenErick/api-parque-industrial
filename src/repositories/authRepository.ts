@@ -40,7 +40,7 @@ export class AuthRepository {
         };
     public getProfileById = async (id: number): Promise<Partial<IUsuario> | null> => {
           const [rows]: any = await this.db.query(
-            `SELECT u.id, u.documento_identidad, u.nombre_razonsocial, u.cargo_representante, 
+            `SELECT u.id, u.rol_id, u.es_activo, u.documento_identidad, u.nombre_razonsocial, u.cargo_representante, 
             u.telefono, u.correo, u.direccion, u.ultimo_acceso, 
             r.nombre_rol, r.permisos_json, r.rutas_json 
      FROM usuario u
