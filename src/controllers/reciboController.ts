@@ -87,7 +87,7 @@ export class ReciboController {
     public getRecibosByUsuario = async (req: Request<{ usuarioId: string }>, res: Response): Promise<any> => {
           const { usuarioId } = req.params;
 
-          if (req.user?.nombre_rol === RolUsuario.SOCIO && req.user.id !== parseInt(usuarioId)) {
+          if (req.user?.nombre_rol === RolUsuario.SOCIO && Number(req.user.id) !== Number(usuarioId)) {
             return res.status(403).json({ error: 'No tienes permisos para ver estos recibos' });
           }
 

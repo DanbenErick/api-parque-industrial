@@ -42,7 +42,9 @@ export class AuthRepository {
           const [rows]: any = await this.db.query(
             `SELECT u.id, u.rol_id, u.es_activo, u.documento_identidad, u.nombre_razonsocial, u.cargo_representante, 
             u.telefono, u.correo, u.direccion, u.ultimo_acceso, 
-            r.nombre_rol, r.permisos_json, r.rutas_json 
+            r.nombre_rol, 
+            r.permisos_json AS permisos, 
+            r.rutas_json AS rutas 
      FROM usuario u
      INNER JOIN rol r ON u.rol_id = r.id
      WHERE u.id = ? AND u.deleted_at IS NULL`,
