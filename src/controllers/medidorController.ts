@@ -10,6 +10,8 @@ interface ICreateMedidorBody {
   operativo?: boolean;
   lectura_inicial?: number;
   lectura_inicial_punta?: number;
+  demanda_maxima_fuera_punta?: number;
+  demanda_maxima_punta?: number;
 }
 
 interface IUpdateMedidorBody {
@@ -19,6 +21,8 @@ interface IUpdateMedidorBody {
   operativo?: boolean;
   lectura_inicial?: number;
   lectura_inicial_punta?: number;
+  demanda_maxima_fuera_punta?: number;
+  demanda_maxima_punta?: number;
 }
 
 export class MedidorController {

@@ -114,6 +114,8 @@ CREATE TABLE `medidor` (
   `tipo` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'Normal' COMMENT 'Normal o Tiempo Real',
   `lectura_inicial` decimal(12,2) DEFAULT '0.00' COMMENT 'Lectura base al registrar el medidor',
   `lectura_inicial_punta` decimal(12,2) DEFAULT '0.00' COMMENT 'Lectura base punta al registrar el medidor',
+  `demanda_maxima_fuera_punta` decimal(12,2) DEFAULT '0.00' COMMENT 'Demanda maxima base',
+  `demanda_maxima_punta` decimal(12,2) DEFAULT '0.00' COMMENT 'Demanda maxima punta base',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_medidor_serie` (`num_serie`),
   KEY `idx_medidor_usuario` (`usuario_id`),

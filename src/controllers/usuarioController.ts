@@ -117,7 +117,9 @@ export class UsuarioController {
               tipo: m.tipo || 'Normal',
               operativo: true,
               lectura_inicial: m.lectura_inicial || 0,
-              lectura_inicial_punta: m.lectura_inicial_punta || 0
+              lectura_inicial_punta: m.lectura_inicial_punta || 0,
+              demanda_maxima_fuera_punta: m.demanda_maxima_fuera_punta || 0,
+              demanda_maxima_punta: m.demanda_maxima_punta || 0
             });
           }
         }
@@ -300,7 +302,9 @@ export class UsuarioController {
               direccion: nm.direccion || 'Sin dirección',
               operativo: true,
               lectura_inicial: nm.lectura_inicial,
-              lectura_inicial_punta: nm.lectura_inicial_punta
+              lectura_inicial_punta: nm.lectura_inicial_punta,
+              demanda_maxima_fuera_punta: nm.demanda_maxima_fuera_punta,
+              demanda_maxima_punta: nm.demanda_maxima_punta
             });
           } else if (nm.num_serie && nm.num_serie.trim() !== '') {
             // Crear nuevo medidor
@@ -311,7 +315,9 @@ export class UsuarioController {
               direccion: nm.direccion || 'Sin dirección',
               operativo: true,
               lectura_inicial: nm.lectura_inicial || 0,
-              lectura_inicial_punta: nm.lectura_inicial_punta || 0
+              lectura_inicial_punta: nm.lectura_inicial_punta || 0,
+              demanda_maxima_fuera_punta: nm.demanda_maxima_fuera_punta || 0,
+              demanda_maxima_punta: nm.demanda_maxima_punta || 0
             });
           }
         }

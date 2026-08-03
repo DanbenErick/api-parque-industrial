@@ -7,7 +7,7 @@ export class MedidorRepository {
     FROM medidor m
     INNER JOIN usuario u ON m.usuario_id = u.id
     LEFT JOIN (
-      SELECT medidor_id, lectura_actual, lectura_actual_punta,
+      SELECT medidor_id, lectura_actual, lectura_actual_punta, max_demanda_fuera_punta, max_demanda_punta,
         ROW_NUMBER() OVER (PARTITION BY medidor_id ORDER BY fecha_registro DESC) as rn
       FROM lectura
       WHERE deleted_at IS NULL
@@ -24,10 +24,12 @@ export class MedidorRepository {
 
           const [rows]: any = await this.db.query(`
     SELECT m.id, m.num_serie, m.tipo, m.operativo, m.usuario_id,
-           m.lectura_inicial, m.lectura_inicial_punta,
+           m.lectura_inicial, m.lectura_inicial_punta, m.demanda_maxima_fuera_punta, m.demanda_maxima_punta,
            u.nombre_razonsocial as propietario, u.documento_identidad, u.direccion,
            COALESCE(ul.lectura_actual, m.lectura_inicial, 0) as ultima_lectura,
-           COALESCE(ul.lectura_actual_punta, m.lectura_inicial_punta, 0) as ultima_lectura_punta
+           COALESCE(ul.lectura_actual_punta, m.lectura_inicial_punta, 0) as ultima_lectura_punta,
+           COALESCE(ul.max_demanda_fuera_punta, m.demanda_maxima_fuera_punta, 0) as ultima_demanda_maxima_fuera_punta,
+           COALESCE(ul.max_demanda_punta, m.demanda_maxima_punta, 0) as ultima_demanda_maxima_punta
     ${baseQuery}
     ORDER BY u.nombre_razonsocial ASC
     LIMIT 50
@@ -36,29 +38,31 @@ export class MedidorRepository {
         };
     public findByUsuario = async (usuarioId: any) => {
           const [rows]: any = await this.db.query(`
-    SELECT m.id, m.num_serie, m.tipo, m.direccion, m.operativo, m.lectura_inicial, m.lectura_inicial_punta
+    SELECT m.id, m.num_serie, m.tipo, m.direccion, m.operativo, m.lectura_inicial, m.lectura_inicial_punta, m.demanda_maxima_fuera_punta, m.demanda_maxima_punta
     FROM medidor m
     WHERE m.usuario_id = ? AND m.deleted_at IS NULL
   `, [usuarioId]);
           return rows;
         };
     public create = async (medidor: any) => {
-          const { usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
+          const { usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta, demanda_maxima_fuera_punta, demanda_maxima_punta } = medidor;
           const [result]: any = await this.db.query(
-            `INSERT INTO medidor (usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [usuario_id, num_serie, tipo || 'Normal', direccion || 'Sin dirección', operativo !== undefined ? operativo : true, lectura_inicial || 0, lectura_inicial_punta || 0]
+            `INSERT INTO medidor (usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta, demanda_maxima_fuera_punta, demanda_maxima_punta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [usuario_id, num_serie, tipo || 'Normal', direccion || 'Sin dirección', operativo !== undefined ? operativo : true, lectura_inicial || 0, lectura_inicial_punta || 0, demanda_maxima_fuera_punta || 0, demanda_maxima_punta || 0]
           );
           return result.insertId;
         };
     public update = async (id: any, medidor: any) => {
-          const { usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta } = medidor;
+          const { usuario_id, num_serie, tipo, direccion, operativo, lectura_inicial, lectura_inicial_punta, demanda_maxima_fuera_punta, demanda_maxima_punta } = medidor;
           const [result]: any = await this.db.query(
             `UPDATE medidor 
              SET usuario_id = ?, num_serie = ?, tipo = ?, direccion = ?, operativo = ?,
                  lectura_inicial = COALESCE(?, lectura_inicial),
-                 lectura_inicial_punta = COALESCE(?, lectura_inicial_punta)
+                 lectura_inicial_punta = COALESCE(?, lectura_inicial_punta),
+                 demanda_maxima_fuera_punta = COALESCE(?, demanda_maxima_fuera_punta),
+                 demanda_maxima_punta = COALESCE(?, demanda_maxima_punta)
              WHERE id = ? AND deleted_at IS NULL`,
-            [usuario_id, num_serie, tipo || 'Normal', direccion || 'Sin dirección', operativo, lectura_inicial, lectura_inicial_punta, id]
+            [usuario_id, num_serie, tipo || 'Normal', direccion || 'Sin dirección', operativo, lectura_inicial, lectura_inicial_punta, demanda_maxima_fuera_punta, demanda_maxima_punta, id]
           );
           return result.affectedRows;
         };

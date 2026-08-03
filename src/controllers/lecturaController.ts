@@ -11,6 +11,8 @@ interface ICreateLecturaBody {
   lectura_actual: number;
   lectura_anterior_punta?: number;
   lectura_actual_punta?: number;
+  max_demanda_fuera_punta?: number;
+  max_demanda_punta?: number;
   factor_potencia?: number;
   precio_factor_potencia?: number;
   estado?: string;
@@ -26,6 +28,8 @@ interface IUpdateLecturaBody {
   lectura_actual: number;
   lectura_anterior_punta?: number;
   lectura_actual_punta?: number;
+  max_demanda_fuera_punta?: number;
+  max_demanda_punta?: number;
   es_cambio_medidor?: boolean;
   lectura_final_viejo?: number;
   lectura_inicial_nuevo?: number;
@@ -77,7 +81,9 @@ export class LecturaController {
           const { 
             medidor_id, periodo_id, 
             lectura_anterior, lectura_actual, 
-            lectura_anterior_punta, lectura_actual_punta, factor_potencia, precio_factor_potencia,
+            lectura_anterior_punta, lectura_actual_punta, 
+            max_demanda_fuera_punta, max_demanda_punta,
+            factor_potencia, precio_factor_potencia,
             estado,
             es_cambio_medidor, 
             lectura_final_viejo, lectura_inicial_nuevo,
@@ -112,7 +118,9 @@ export class LecturaController {
             const insertId = await this.lecturaRepo.create({
               medidor_id, operario_id, periodo_id, 
               lectura_anterior, lectura_actual, 
-              lectura_anterior_punta, lectura_actual_punta, factor_potencia, precio_factor_potencia,
+              lectura_anterior_punta, lectura_actual_punta, 
+              max_demanda_fuera_punta, max_demanda_punta,
+              factor_potencia, precio_factor_potencia,
               estado,
               consumo_calculado, es_cambio_medidor, 
               lectura_final_viejo, lectura_inicial_nuevo,
@@ -129,6 +137,7 @@ export class LecturaController {
           const { 
             lectura_anterior, lectura_actual, 
             lectura_anterior_punta, lectura_actual_punta, 
+            max_demanda_fuera_punta, max_demanda_punta,
             es_cambio_medidor, 
             lectura_final_viejo, lectura_inicial_nuevo,
             lectura_final_viejo_punta, lectura_inicial_nuevo_punta
