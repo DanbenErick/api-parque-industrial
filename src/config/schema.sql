@@ -92,6 +92,8 @@ CREATE TABLE `lectura` (
   `lectura_actual_original` decimal(12,2) DEFAULT NULL COMMENT 'Valor antes de modificación',
   `lectura_actual_punta_original` decimal(12,2) DEFAULT NULL COMMENT 'Valor antes de modificación',
   `factor_potencia_original` decimal(12,2) DEFAULT NULL COMMENT 'Valor antes de modificación',
+  `max_demanda_fuera_punta` decimal(12,2) DEFAULT '0.00',
+  `max_demanda_punta` decimal(12,2) DEFAULT '0.00',
   PRIMARY KEY (`id`),
   KEY `fk_lectura_medidor` (`medidor_id`),
   KEY `idx_lectura_periodo_medidor` (`periodo_id`,`medidor_id`),
