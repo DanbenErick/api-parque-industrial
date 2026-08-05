@@ -214,8 +214,8 @@ export class ReciboRepository {
            u.id as usuario_id, u.nombre_razonsocial, u.documento_identidad, u.direccion as socio_direccion, u.correo as socio_email,
            u.direccion, u.telefono, u.correo,
            m.num_serie as num_medidor, m.id as medidor_id, m.tipo as medidor_tipo,
-           l.lectura_actual, l.lectura_anterior, l.consumo_calculado, l.lectura_actual_punta, l.lectura_anterior_punta, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, l.fecha_registro,
-           pf.mes_anio, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.tarifa_mantenimiento_normal, pf.tarifa_mantenimiento_tiempo_real, pf.factor_multiplicador,
+           l.lectura_actual, l.lectura_anterior, l.consumo_calculado, l.lectura_actual_punta, l.lectura_anterior_punta, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, l.fecha_registro, l.max_demanda_fuera_punta, l.max_demanda_punta,
+           pf.mes_anio, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.tarifa_mantenimiento_normal, pf.tarifa_mantenimiento_tiempo_real, pf.factor_multiplicador, pf.costo_potencia, pf.costo_potencia_fuera_punta,
            pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin, pf.fecha_corte
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id

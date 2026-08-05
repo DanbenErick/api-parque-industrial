@@ -229,6 +229,12 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
   if (consumoPunta > 0) items.push({ desc: 'Consumo Energía Activa (Hora Punta)', tarifa: `S/ ${fmt(tarifaPunta)}/kWh`, monto: cargoEnergiaPunta });
   if (fPotencia > 0) items.push({ desc: 'Cargo Energía Reactiva Capacitiva', tarifa: `S/ ${fmt(precioFP)}/kVARh`, monto: cargoFactorPot });
 
+  const costoPotencia = parseFloat(recibo.costo_potencia) || 0;
+  if (maxDemandaP > 0) items.push({ desc: 'Cargo por Máxima Demanda (Hora Punta)', tarifa: `S/ ${fmt(costoPotencia)}/kW`, monto: maxDemandaP * costoPotencia });
+
+  const costoPotenciaN = parseFloat(recibo.costo_potencia_fuera_punta) || 0;
+  if (maxDemandaN > 0) items.push({ desc: 'Cargo por Máxima Demanda (Fuera Punta)', tarifa: `S/ ${fmt(costoPotenciaN)}/kW`, monto: maxDemandaN * costoPotenciaN });
+
   const cargoMant = parseFloat(recibo.cargo_mantenimiento) || 0;
   if (cargoMant > 0) items.push({ desc: 'Mantenimiento de Red', tarifa: null, monto: cargoMant });
 

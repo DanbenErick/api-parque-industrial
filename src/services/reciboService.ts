@@ -129,7 +129,19 @@ export class ReciboService {
               }
 
               const cargo_fijo_total = cargoFijoConfigurado;
-              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + cargo_fijo_total;
+              
+              let cargo_demanda_punta = 0;
+              let cargo_demanda_fuera_punta = 0;
+              if (lectura.tipo === TipoMedidor.HORA_PUNTA) {
+                const max_demanda_punta = parseFloat(lectura.max_demanda_punta) || 0;
+                const max_demanda_fuera_punta = parseFloat(lectura.max_demanda_fuera_punta) || 0;
+                const costo_potencia = parseFloat(periodo.costo_potencia) || 0;
+                const costo_potencia_fuera_punta = parseFloat(periodo.costo_potencia_fuera_punta) || 0;
+                cargo_demanda_punta = max_demanda_punta * costo_potencia;
+                cargo_demanda_fuera_punta = max_demanda_fuera_punta * costo_potencia_fuera_punta;
+              }
+
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + cargo_fijo_total;
               
               let descuento = 0;
               let motivo_descuento = null;
