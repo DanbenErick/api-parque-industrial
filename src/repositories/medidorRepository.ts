@@ -23,9 +23,9 @@ export class MedidorRepository {
           }
 
           const [rows]: any = await this.db.query(`
-    SELECT m.id, m.num_serie, m.tipo, m.operativo, m.usuario_id,
+    SELECT m.id, m.num_serie, m.tipo, m.direccion, m.operativo, m.usuario_id,
            m.lectura_inicial, m.lectura_inicial_punta, m.demanda_maxima_fuera_punta, m.demanda_maxima_punta,
-           u.nombre_razonsocial as propietario, u.documento_identidad, u.direccion,
+           u.nombre_razonsocial as propietario, u.documento_identidad, u.direccion as socio_direccion,
            COALESCE(ul.lectura_actual, m.lectura_inicial, 0) as ultima_lectura,
            COALESCE(ul.lectura_actual_punta, m.lectura_inicial_punta, 0) as ultima_lectura_punta,
            COALESCE(ul.max_demanda_fuera_punta, m.demanda_maxima_fuera_punta, 0) as ultima_demanda_maxima_fuera_punta,

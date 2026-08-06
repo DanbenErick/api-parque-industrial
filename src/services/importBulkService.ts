@@ -183,12 +183,13 @@ export class ImportBulkService {
             const factor = parseFloat(periodo.factor_multiplicador) || 1;
             cargo_energia = consumo * tarifa_kwh * factor;
 
-            const tarifa_mant = medidor_tipo === TipoMedidor.HORA_PUNTA
+            const esTR = medidor_tipo === TipoMedidor.HORA_PUNTA || medidor_tipo === 'Tiempo Real';
+            const tarifa_mant = esTR
               ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real)
               : parseFloat(periodo.tarifa_mantenimiento_normal);
             cargo_mantenimiento = tarifa_mant || 0;
 
-            if (medidor_tipo === TipoMedidor.HORA_PUNTA) {
+            if (esTR) {
               const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
               cargo_energia_punta = consumo_punta * tarifa_kwh_punta * factor;
 
@@ -196,7 +197,6 @@ export class ImportBulkService {
             }
           }
 
-          // Cargos extra del Excel
           const cargo_fijo = parseFloat(String(row.cargo_fijo)) || (medStr ? 0 : 10.00);
           const cargo_corte = parseFloat(String(row.cargo_corte)) || 0;
           const multa_manipulacion = parseFloat(String(row.multa_manipulacion)) || 0;
@@ -204,8 +204,22 @@ export class ImportBulkService {
           const deuda_vencida = parseFloat(String(row.deuda_vencida)) || 0;
           const instalacion_medidor = parseFloat(String(row.instalacion_medidor)) || 0;
           const descuento_val = parseFloat(String(row.descuento)) || 0;
+          
+          let cargo_demanda_punta = 0;
+          let cargo_demanda_fuera_punta = 0;
+          
+          if (medidor_tipo === TipoMedidor.HORA_PUNTA || medidor_tipo === 'Tiempo Real') {
+            const max_demanda_punta = parseFloat(String(row.max_demanda_punta)) || 0;
+            const max_demanda_fuera_punta = parseFloat(String(row.max_demanda_fuera_punta)) || 0;
+            const costo_potencia = parseFloat(periodo.costo_potencia) || 0;
+            const costo_potencia_fuera_punta = parseFloat(periodo.costo_potencia_fuera_punta) || 0;
+            
+            cargo_demanda_punta = max_demanda_punta * costo_potencia;
+            cargo_demanda_fuera_punta = max_demanda_fuera_punta * costo_potencia_fuera_punta;
+          }
 
           let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia_calc +
+            cargo_demanda_punta + cargo_demanda_fuera_punta +
             cargo_mantenimiento + cargo_fijo + cargo_corte +
             multa_manipulacion + multa_reconexion + deuda_vencida + instalacion_medidor - descuento_val;
           if (subtotal < 0) subtotal = 0;

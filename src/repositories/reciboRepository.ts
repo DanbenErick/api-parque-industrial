@@ -38,10 +38,13 @@ export class ReciboRepository {
            r.deuda_pendiente, r.deuda_consumo, r.deuda_vencida, r.descuento, r.motivo_descuento,
            r.subtotal, r.igv, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
            (r.total - COALESCE(pagos.total_pagado, 0)) as saldo_pendiente,
-           u.nombre_razonsocial as socio, u.documento_identidad, u.telefono,
+           u.nombre_razonsocial as socio, u.documento_identidad, u.telefono, u.direccion,
            pf.mes_anio as periodo, m.num_serie as medidor_num_serie, m.tipo as medidor_tipo,
            l.consumo_calculado as consumo_kwh, l.consumo_calculado_punta as consumo_kwh_punta,
-           pf.tarifa_kwh, pf.tarifa_kwh_punta
+           l.lectura_actual, l.lectura_anterior, l.lectura_actual_punta, l.lectura_anterior_punta, l.max_demanda_punta, l.max_demanda_fuera_punta,
+           pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.costo_potencia, pf.costo_potencia_fuera_punta,
+           pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin,
+           (SELECT JSON_ARRAYAGG(JSON_OBJECT('descripcion', descripcion, 'monto', monto)) FROM recibo_cargo_dinamico WHERE recibo_id = r.id) as cargos_dinamicos_json
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id
     INNER JOIN periodo_facturacion pf ON r.periodo_id = pf.id
@@ -53,8 +56,8 @@ export class ReciboRepository {
       WHERE deleted_at IS NULL 
       GROUP BY recibo_id
     ) pagos ON pagos.recibo_id = r.id
-    WHERE r.deleted_at IS NULL
-  `;
+      WHERE r.deleted_at IS NULL AND r.estado != 'Anulado'
+    `;
           
           const params: any[] = [];
 
@@ -215,7 +218,7 @@ export class ReciboRepository {
            u.direccion, u.telefono, u.correo,
            m.num_serie as num_medidor, m.id as medidor_id, m.tipo as medidor_tipo,
            l.lectura_actual, l.lectura_anterior, l.consumo_calculado, l.lectura_actual_punta, l.lectura_anterior_punta, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, l.fecha_registro, l.max_demanda_fuera_punta, l.max_demanda_punta,
-           pf.mes_anio, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.tarifa_mantenimiento_normal, pf.tarifa_mantenimiento_tiempo_real, pf.factor_multiplicador, pf.costo_potencia, pf.costo_potencia_fuera_punta,
+           pf.mes_anio, pf.tarifa_kwh, pf.tarifa_kwh_tr, pf.tarifa_kwh_punta, pf.tarifa_mantenimiento_normal, pf.tarifa_mantenimiento_tiempo_real, pf.factor_multiplicador, pf.costo_potencia, pf.costo_potencia_fuera_punta, pf.precio_energia_reactiva,
            pf.fecha_inicio as periodo_inicio, pf.fecha_fin as periodo_fin, pf.fecha_corte
     FROM recibo r
     INNER JOIN usuario u ON r.usuario_id = u.id

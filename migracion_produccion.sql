@@ -27,6 +27,7 @@ DELIMITER ;
 -- Ejecutar para la tabla medidor
 CALL AddColumnIfNotExists(DATABASE(), 'medidor', 'demanda_maxima_fuera_punta', "DECIMAL(12,2) DEFAULT '0.00' COMMENT 'Demanda maxima base'");
 CALL AddColumnIfNotExists(DATABASE(), 'medidor', 'demanda_maxima_punta', "DECIMAL(12,2) DEFAULT '0.00' COMMENT 'Demanda maxima punta base'");
+CALL AddColumnIfNotExists(DATABASE(), 'medidor', 'direccion', "VARCHAR(255) DEFAULT 'Sin dirección'");
 
 -- Ejecutar para la tabla lectura
 CALL AddColumnIfNotExists(DATABASE(), 'lectura', 'max_demanda_fuera_punta', "DECIMAL(12,2) DEFAULT '0.00'");

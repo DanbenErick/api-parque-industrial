@@ -40,63 +40,206 @@ export class ExcelService {
               estado: req.query.estado,
               search: req.query.search
             };
-            const recibos = await this.reciboRepo.findAll(filters);
+            const recibos = await this.reciboRepo.findAll(filters, 1, 999999);
 
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Reporte de Facturación');
 
             worksheet.columns = [
-              { header: 'N° COMPROBANTE', key: 'comprobante', width: 20 },
-              { header: 'SOCIO', key: 'socio', width: 35 },
-              { header: 'MEDIDOR', key: 'medidor', width: 20 },
-              { header: 'TIPO MEDIDOR', key: 'tipo_medidor', width: 20 },
-              { header: 'PERIODO', key: 'periodo', width: 15 },
-              { header: 'FECHA EMISIÓN', key: 'fecha_emision', width: 18 },
-              { header: 'FECHA VENCIMIENTO', key: 'fecha_vencimiento', width: 20 },
-              { header: 'CARGO ENERGÍA (S/)', key: 'energia', width: 20 },
-              { header: 'ENERGÍA PUNTA (S/)', key: 'energia_punta', width: 20 },
-              { header: 'FACTOR POTENCIA (S/)', key: 'factor_potencia', width: 22 },
-              { header: 'MANTENIMIENTO (S/)', key: 'mantenimiento', width: 20 },
-              { header: 'CARGO FIJO (S/)', key: 'fijo', width: 18 },
-              { header: 'CORTE (S/)', key: 'corte', width: 15 },
-              { header: 'INST. MEDIDOR (S/)', key: 'instalacion', width: 20 },
-              { header: 'MULTA MANIPULACIÓN (S/)', key: 'multa_m', width: 25 },
-              { header: 'MULTA RECONEXIÓN (S/)', key: 'multa_r', width: 25 },
-              { header: 'DEUDA VENCIDA (S/)', key: 'vencida', width: 20 },
-              { header: 'SUBTOTAL (S/)', key: 'subtotal', width: 15 },
-              { header: 'IGV (18%) (S/)', key: 'igv', width: 15 },
-              { header: 'TOTAL (S/)', key: 'total', width: 15 },
-              { header: 'ESTADO', key: 'estado', width: 15 }
+              { header: 'Apellidos y Nombres', key: 'socio', width: 45 },
+              { header: 'Serie Med.', key: 'medidor', width: 15 },
+              { header: 'kWH2', key: 'kwh2', width: 15 },
+              { header: 'kWH1', key: 'kwh1', width: 15 },
+              { header: 'kwH/mes', key: 'consumo', width: 15 },
+              { header: '(S/mes)', key: 's_mes', width: 15 },
+              { header: 'D. Ant.', key: 'd_ant', width: 15 },
+              { header: 'Corte', key: 'corte', width: 12 },
+              { header: 'Cons.', key: 'cons', width: 15 },
+              { header: 'Pago', key: 'pago', width: 15 },
+              { header: 'deuda', key: 'deuda', width: 15 }
             ];
 
-            worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F497D' } };
-            worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' };
+            let titulo = 'CONSUMO DE ENERGÍA';
+            let tarifa = '';
+            if (recibos.length > 0) {
+              const r0 = recibos[0] as any;
+              const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+              const mesesCompletos = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+              
+              if (r0.periodo_inicio && r0.periodo_fin) {
+                const dInicio = new Date(r0.periodo_inicio);
+                const dFin = new Date(r0.periodo_fin);
+                titulo = `CONSUMO DE ENERGÍA de ${dInicio.getDate()} ${meses[dInicio.getMonth()]} al ${dFin.getDate()} de ${mesesCompletos[dFin.getMonth()]} ${dFin.getFullYear()}`;
+              }
+              tarifa = parseFloat(r0.tarifa_kwh || 0).toFixed(2);
+            }
+
+            worksheet.spliceRows(1, 0, []);
+            worksheet.getCell('A1').value = titulo;
+            // worksheet.getCell('K1').value = tarifa; (Eliminado a petición del usuario)
+            worksheet.mergeCells('A1:K1');
+            const titleRow = worksheet.getRow(1);
+            titleRow.font = { bold: true, italic: true, size: 14, color: { argb: 'FFFFFFFF' } };
+            titleRow.alignment = { horizontal: 'center', vertical: 'middle' };
+            titleRow.height = 30;
+            // Fondo oscuro para el título
+            for (let i = 1; i <= 11; i++) {
+              titleRow.getCell(i).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+              titleRow.getCell(i).border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            }
+
+            const headerRow = worksheet.getRow(2);
+            headerRow.font = { bold: true, italic: true, color: { argb: 'FFFFFFFF' } };
+            headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+            headerRow.height = 25;
+            headerRow.eachCell((cell) => {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF334155' } };
+              cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
 
             (recibos as any[]).forEach((r: any) => {
-              worksheet.addRow({
-                comprobante: r.numero_comprobante,
-                socio: r.socio,
-                medidor: r.medidor_num_serie || 'Sin medidor',
-                tipo_medidor: r.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (r.medidor_tipo || '-'),
-                periodo: r.periodo,
-                fecha_emision: r.fecha_emision ? new Date(r.fecha_emision).toLocaleDateString('es-PE') : '-',
-                fecha_vencimiento: r.fecha_vencimiento ? new Date(r.fecha_vencimiento).toLocaleDateString('es-PE') : '-',
-                energia: parseFloat(r.cargo_energia || 0),
-                energia_punta: parseFloat(r.cargo_energia_punta || 0),
-                factor_potencia: parseFloat(r.cargo_factor_potencia || 0),
-                mantenimiento: parseFloat(r.cargo_mantenimiento || 0),
-                fijo: parseFloat(r.cargo_fijo || 0),
-                corte: parseFloat(r.cargo_corte || 0),
-                instalacion: parseFloat(r.instalacion_medidor || 0),
-                multa_m: parseFloat(r.multa_manipulacion || 0),
-                multa_r: parseFloat(r.multa_reconexion || 0),
-                vencida: parseFloat(r.deuda_vencida || 0),
-                subtotal: parseFloat(r.subtotal || 0),
-                igv: parseFloat(r.igv || 0),
-                total: parseFloat(r.total || 0),
-                estado: r.estado
-              });
+              const medidor_tipo = r.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (r.medidor_tipo || 'Normal');
+              
+              const fmt = (val: any) => val ? parseFloat(val) : 0;
+              const empty = null;
+
+              const deuda_ant = parseFloat(r.deuda_vencida || 0) + parseFloat(r.deuda_pendiente || 0) + parseFloat(r.deuda_consumo || 0);
+              const corte = parseFloat(r.cargo_corte || 0);
+              const otros_cargos_fijos = parseFloat(r.cargo_fijo || 0) + parseFloat(r.cargo_mantenimiento || 0) + parseFloat(r.multa_manipulacion || 0) + parseFloat(r.multa_reconexion || 0) + parseFloat(r.instalacion_medidor || 0) + parseFloat(r.total_cargos_dinamicos || 0);
+              const pago = r.total - r.saldo_pendiente > 0 ? (r.total - r.saldo_pendiente) : empty;
+
+              const socioNombre = r.direccion ? `${r.socio}\n(${r.direccion})` : r.socio;
+
+              const addStyledRow = (data: any, isConsBright = false, isMedidorYellow = false, isSocioRow = false) => {
+                const rObj = worksheet.addRow(data);
+                
+                if (data.socio && data.socio.includes('\n')) {
+                  rObj.height = 35;
+                }
+
+                rObj.eachCell((cell, colNumber) => {
+                  if (isSocioRow) {
+                    // Borde ligeramente más oscuro para la barra separadora
+                    cell.border = { 
+                      top: { style: 'thin', color: { argb: 'FF94A3B8' } }, left: { style: 'thin', color: { argb: 'FF94A3B8' } }, 
+                      bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }, right: { style: 'thin', color: { argb: 'FF94A3B8' } } 
+                    };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                    cell.font = { bold: true, size: 11, color: { argb: 'FF0F172A' } };
+                    if (colNumber === 1) cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'left', indent: 1 };
+                  } else {
+                    // Borde gris claro para los detalles (más limpio)
+                    cell.border = { 
+                      top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, left: { style: 'thin', color: { argb: 'FFCBD5E1' } }, 
+                      bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } }, right: { style: 'thin', color: { argb: 'FFCBD5E1' } } 
+                    };
+                    
+                    // Formato numérico y alineación
+                    if (colNumber === 1) {
+                       cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'left', indent: 2 }; // Jerarquía visual
+                    } else if (colNumber === 2) {
+                       cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else {
+                       cell.alignment = { vertical: 'middle', horizontal: 'right' };
+                       cell.numFmt = '#,##0.00'; // Restaurar formato nativo de Excel
+                    }
+
+                    if (colNumber === 6) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9EAD3' } }; // Verde muy claro
+                    if (colNumber === 9 && isConsBright) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF86EFAC' } }; // Verde pastel más moderno
+                    if (colNumber === 11) {
+                      const val = parseFloat(cell.value as string || '0');
+                      if (val > 0) {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEF4444' } }; // Rojo coral pastel para deuda
+                        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                      }
+                    }
+                    if (colNumber === 2 && isMedidorYellow) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } }; // Amarillo pastel
+                  }
+                });
+                return rObj;
+              };
+
+              const isHoraPunta = medidor_tipo === 'Hora Punta';
+
+              // 1. Fila de Separador de Socio (Gris Completo A-K)
+              const rObjSocio = addStyledRow({
+                socio: socioNombre,
+                medidor: empty,
+                kwh2: empty, kwh1: empty, consumo: empty, s_mes: empty,
+                d_ant: empty, corte: empty, cons: empty, pago: empty, deuda: empty
+              }, false, false, true);
+              worksheet.mergeCells(`A${rObjSocio.number}:K${rObjSocio.number}`);
+
+              // Función auxiliar para agregar filas de cargos
+              const addCargoRow = (desc: string, monto: number, isDeudaAnt = false, isCorte = false) => {
+                if (monto === 0) return;
+                addStyledRow({
+                  socio: desc,
+                  medidor: r.medidor_num_serie || '-',
+                  kwh2: empty, kwh1: empty, consumo: empty,
+                  s_mes: fmt(monto),
+                  d_ant: isDeudaAnt ? fmt(monto) : empty,
+                  corte: isCorte ? fmt(monto) : empty,
+                  cons: fmt(monto),
+                  pago: empty, deuda: empty
+                }, true, isHoraPunta);
+              };
+
+              // 2. Desglosar Cargos Previos
+              if (deuda_ant > 0) addCargoRow('Deuda Anterior', deuda_ant, true, false);
+              if (corte > 0) addCargoRow('Cargo por Corte', corte, false, true);
+
+              // 3. Cargos Fijos y Dinámicos
+              const legacy_cargos = [
+                { d: 'Cargo Fijo', v: parseFloat(r.cargo_fijo || 0) },
+                { d: 'Mantenimiento', v: parseFloat(r.cargo_mantenimiento || 0) },
+                { d: 'Multa Manipulación', v: parseFloat(r.multa_manipulacion || 0) },
+                { d: 'Multa Reconexión', v: parseFloat(r.multa_reconexion || 0) },
+                { d: 'Instalación Medidor', v: parseFloat(r.instalacion_medidor || 0) }
+              ];
+              legacy_cargos.forEach(c => addCargoRow(c.d, c.v));
+
+              let dyn_cargos: any[] = [];
+              if (r.cargos_dinamicos_json) {
+                try { dyn_cargos = typeof r.cargos_dinamicos_json === 'string' ? JSON.parse(r.cargos_dinamicos_json) : r.cargos_dinamicos_json; } catch(e){}
+              }
+              dyn_cargos.forEach(cd => addCargoRow(cd.descripcion, parseFloat(cd.monto || 0)));
+
+              // 4. Filas de Energía
+              if (isHoraPunta) {
+                const ce_fp = parseFloat(r.cargo_energia || 0);
+                addStyledRow({
+                  socio: 'ENERGIA ACTIVA F. P', medidor: r.medidor_num_serie || '-',
+                  kwh2: fmt(r.lectura_actual), kwh1: fmt(r.lectura_anterior), consumo: fmt(r.consumo_kwh),
+                  s_mes: fmt(ce_fp), d_ant: empty, corte: empty, cons: fmt(ce_fp), pago: empty, deuda: empty
+                }, true, true);
+
+                const ce_hp = parseFloat(r.cargo_energia_punta || 0);
+                addStyledRow({
+                  socio: 'ENERGIA ACTIVA H. P', medidor: r.medidor_num_serie || '-',
+                  kwh2: fmt(r.lectura_actual_punta), kwh1: fmt(r.lectura_anterior_punta), consumo: fmt(r.consumo_kwh_punta),
+                  s_mes: fmt(ce_hp), d_ant: empty, corte: empty, cons: fmt(ce_hp), pago: empty, deuda: empty
+                }, true, true);
+
+                const md_p = parseFloat(r.max_demanda_punta || 0);
+                const c_pot = parseFloat(r.costo_potencia || 0);
+                const c_dem = md_p * c_pot;
+                addStyledRow({
+                  socio: 'POTENCIA DE GENERACION', medidor: r.medidor_num_serie || '-',
+                  kwh2: fmt(md_p), kwh1: empty, consumo: fmt(md_p),
+                  s_mes: fmt(c_dem), d_ant: empty, corte: empty, cons: fmt(c_dem),
+                  pago: pago, deuda: fmt(r.saldo_pendiente) // Última fila lleva deuda y pago
+                }, true, true);
+
+              } else {
+                const ce = parseFloat(r.cargo_energia || 0);
+                addStyledRow({
+                  socio: 'ENERGIA ACTIVA', medidor: r.medidor_num_serie || '-',
+                  kwh2: fmt(r.lectura_actual), kwh1: fmt(r.lectura_anterior), consumo: fmt(r.consumo_kwh),
+                  s_mes: fmt(ce), d_ant: empty, corte: empty, cons: fmt(ce),
+                  pago: pago, deuda: fmt(r.saldo_pendiente) // Última fila lleva deuda y pago
+                }, true, false);
+              }
             });
 
             res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');

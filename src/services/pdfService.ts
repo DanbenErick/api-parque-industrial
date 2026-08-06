@@ -129,7 +129,7 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
   doc.text(`${recibo.documento_identidad || '-'}`, margin + 10, y + 35);
   doc.text(`${recibo.direccion || '-'}`, margin + 10, y + 46);
   doc.fillColor(SLATE_LT).font('Lexend-Medium');
-  doc.text(`Medidor: ${recibo.num_medidor || 'Sin medidor'} (${recibo.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (recibo.medidor_tipo || 'Normal')})`, margin + 10, y + 58);
+  doc.text(`Medidor: ${recibo.num_medidor || 'Sin medidor'} (${recibo.medidor_tipo === 'Tiempo Real' ? 'Hora Punta' : (recibo.medidor_tipo === 'Normal' ? 'Fuera Punta' : (recibo.medidor_tipo || 'Fuera Punta'))})`, margin + 10, y + 58);
 
   // -- Columna derecha: Periodo
   doc.roundedRect(col2X, y, col2W, 70, 5).fill(BG).strokeColor(BORDER).stroke();
@@ -151,21 +151,14 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
   const fPotenciaLayout = parseFloat(recibo.factor_potencia) || 0;
   const maxDemandaN = parseFloat(recibo.max_demanda_fuera_punta) || 0;
   const maxDemandaP = parseFloat(recibo.max_demanda_punta) || 0;
-  const esTiempoReal = consPuntaLayout > 0 || fPotenciaLayout > 0 || maxDemandaN > 0 || maxDemandaP > 0;
+  const esTiempoReal = recibo.medidor_tipo === 'Hora Punta' || recibo.medidor_tipo === 'Tiempo Real';
 
-  const blockW = W / 4;
   let rowsOfBlocks = [];
 
   if (esTiempoReal) {
     rowsOfBlocks.push([
-      { label: 'HORA NORMAL (Ant/Act)', value: `${fmt(recibo.lectura_anterior)} / ${fmt(recibo.lectura_actual)}`, sub: 'Lectura kWh' },
-      { label: 'CONSUMO NORMAL',        value: `${fmt(recibo.consumo_calculado)}`,      sub: 'kWh Facturados' },
+      { label: 'FUERA PUNTA (Ant/Act)', value: `${fmt(recibo.lectura_anterior)} / ${fmt(recibo.lectura_actual)}`, sub: 'Lectura kWh' },
       { label: 'HORA PUNTA (Ant/Act)',  value: `${fmt(recibo.lectura_anterior_punta)} / ${fmt(recibo.lectura_actual_punta)}`, sub: 'Lectura Punta kWh' },
-      { label: 'CONSUMO PUNTA',         value: `${fmt(recibo.consumo_calculado_punta)}`, sub: 'kWh Facturados Punta' }
-    ]);
-    rowsOfBlocks.push([
-      { label: 'MÁX. DEM. FUERA PUNTA', value: `${fmt(maxDemandaN)}`, sub: 'kW' },
-      { label: 'MÁX. DEM. PUNTA',       value: `${fmt(maxDemandaP)}`, sub: 'kW' },
       { label: 'ENERGÍA REACTIVA',      value: `${fmt(fPotenciaLayout)}`, sub: 'kVARh' },
       { label: 'N° MEDIDOR',            value: recibo.num_medidor || 'S/M', sub: 'Equipo Registrado' }
     ]);
@@ -173,32 +166,43 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
     rowsOfBlocks.push([
       { label: 'LECTURA ANTERIOR', value: fmt(recibo.lectura_anterior), sub: fmtDate(recibo.periodo_inicio) },
       { label: 'LECTURA ACTUAL',   value: fmt(recibo.lectura_actual),   sub: fmtDate(recibo.periodo_fin)    },
-      { label: 'CONSUMO kWh',      value: fmt(recibo.consumo_calculado), sub: 'Mes Facturado'               },
       { label: 'N° MEDIDOR',       value: recibo.num_medidor || 'S/M',   sub: 'Equipo Registrado'           }
     ]);
   }
 
-  const boxHeight = rowsOfBlocks.length * 46;
-  doc.roundedRect(margin, y, W, boxHeight, 5).strokeColor(BORDER).stroke();
+  const rowH = 54;
+  const boxHeight = rowsOfBlocks.length * rowH;
+  doc.roundedRect(margin, y, W, boxHeight, 6).fillAndStroke(BG, BORDER);
 
   rowsOfBlocks.forEach((blocks, rowIndex) => {
-    const rowY = y + (rowIndex * 46);
+    const rowY = y + (rowIndex * rowH);
     if (rowIndex > 0) {
       doc.moveTo(margin, rowY).lineTo(margin + W, rowY).strokeColor(BORDER).lineWidth(1).stroke();
     }
+    const blockW = W / blocks.length;
     blocks.forEach((b, i) => {
       const bx = margin + (blockW * i);
-      if (i > 0) doc.moveTo(bx, rowY + 8).lineTo(bx, rowY + 38).strokeColor(BORDER).lineWidth(1).stroke();
-      doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend-Medium');
-      doc.text(b.label, bx + 10, rowY + 7, { lineBreak: false });
-      doc.fillColor(NAVY).fontSize(11).font('Lexend-Bold');
-      doc.text(b.value, bx + 10, rowY + 18, { lineBreak: false });
+      if (i > 0) doc.moveTo(bx, rowY + 12).lineTo(bx, rowY + rowH - 12).strokeColor(BORDER).lineWidth(1).stroke();
+      
+      doc.fillColor(TEAL).fontSize(7).font('Lexend-Medium');
+      doc.text(b.label, bx, rowY + 10, { width: blockW, align: 'center', lineBreak: false });
+      
+      doc.fillColor(NAVY).font('Lexend-Bold');
+      let valFontSize = 12;
+      if (b.value.length > 20) {
+        valFontSize = 8.5;
+      } else if (b.value.length > 14) {
+        valFontSize = 10;
+      }
+      doc.fontSize(valFontSize);
+      doc.text(b.value, bx, rowY + 23 + (12 - valFontSize) * 0.4, { width: blockW, align: 'center', lineBreak: false });
+      
       doc.fillColor(SLATE_LT).fontSize(6.5).font('Lexend');
-      doc.text(b.sub, bx + 10, rowY + 34, { lineBreak: false });
+      doc.text(b.sub, bx, rowY + 39, { width: blockW, align: 'center', lineBreak: false });
     });
   });
 
-  y += boxHeight + 8;
+  y += boxHeight + 12;
 
   // ═══════════════════════════════════════════════
   // 4. TABLA DE IMPORTES FACTURADOS
@@ -207,6 +211,7 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
   doc.roundedRect(margin, y, W, 22, 5).fill(NAVY);
   doc.fillColor(WHITE).fontSize(7.5).font('Lexend-Bold');
   doc.text('DESCRIPCIÓN', margin + 12, y + 7, { lineBreak: false });
+  doc.text('CANTIDAD', margin + W * 0.40, y + 7, { width: 60, align: 'right' as const, lineBreak: false });
   doc.text('TARIFA', margin + W * 0.55, y + 7, { width: 60, align: 'right' as const, lineBreak: false });
   doc.text('IMPORTE (S/)', margin + W * 0.72, y + 7, { width: W * 0.25, align: 'right' as const, lineBreak: false });
   y += 24;
@@ -214,9 +219,10 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
   // Gather line items
   const items = [];
 
+  const consumo = parseFloat(recibo.consumo_calculado) || 0;
   const cargoEnergia = parseFloat(recibo.cargo_energia) || 0;
-  const tarifaKwh = parseFloat(recibo.tarifa_kwh) || 0;
-  if (cargoEnergia > 0) items.push({ desc: 'Consumo Energía Activa (Hora Normal)', tarifa: `S/ ${fmt(tarifaKwh)}/kWh`, monto: cargoEnergia });
+  const tarifaKwh = esTiempoReal ? (parseFloat(recibo.tarifa_kwh_tr) || 0) : (parseFloat(recibo.tarifa_kwh) || 0);
+  if (cargoEnergia > 0) items.push({ desc: 'Consumo Energía Activa (Fuera Punta)', cantidad: `${fmt(consumo)} kWh`, tarifa: `S/ ${fmt(tarifaKwh)}/kWh`, monto: cargoEnergia });
 
   const cargoEnergiaPunta = parseFloat(recibo.cargo_energia_punta) || 0;
   const cargoFactorPot = parseFloat(recibo.cargo_factor_potencia) || 0;
@@ -224,16 +230,16 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
   const consumoPunta = parseFloat(recibo.consumo_calculado_punta) || 0;
   const fPotencia = parseFloat(recibo.factor_potencia) || 0;
   const tarifaPunta = parseFloat(recibo.tarifa_kwh_punta) || 0;
-  const precioFP = parseFloat(recibo.precio_factor_potencia) || (fPotencia > 0 ? cargoFactorPot / fPotencia : 0);
+  const precioFP = parseFloat(recibo.precio_energia_reactiva) || 0;
 
-  if (consumoPunta > 0) items.push({ desc: 'Consumo Energía Activa (Hora Punta)', tarifa: `S/ ${fmt(tarifaPunta)}/kWh`, monto: cargoEnergiaPunta });
-  if (fPotencia > 0) items.push({ desc: 'Cargo Energía Reactiva Capacitiva', tarifa: `S/ ${fmt(precioFP)}/kVARh`, monto: cargoFactorPot });
+  if (esTiempoReal || consumoPunta > 0) items.push({ desc: 'Consumo Energía Activa (Hora Punta)', cantidad: `${fmt(consumoPunta)} kWh`, tarifa: `S/ ${fmt(tarifaPunta)}/kWh`, monto: cargoEnergiaPunta });
+  if (esTiempoReal || fPotencia > 0) items.push({ desc: 'Cargo Energía Reactiva Capacitiva', cantidad: `${fmt(fPotencia)} kVARh`, tarifa: `S/ ${fmt(precioFP)}/kVARh`, monto: cargoFactorPot });
 
   const costoPotencia = parseFloat(recibo.costo_potencia) || 0;
-  if (maxDemandaP > 0) items.push({ desc: 'Cargo por Máxima Demanda (Hora Punta)', tarifa: `S/ ${fmt(costoPotencia)}/kW`, monto: maxDemandaP * costoPotencia });
+  if (esTiempoReal || maxDemandaP > 0) items.push({ desc: 'Cargo por Máxima Demanda (Hora Punta)', cantidad: `${fmt(maxDemandaP)} kW`, tarifa: `S/ ${fmt(costoPotencia)}/kW`, monto: maxDemandaP * costoPotencia });
 
   const costoPotenciaN = parseFloat(recibo.costo_potencia_fuera_punta) || 0;
-  if (maxDemandaN > 0) items.push({ desc: 'Cargo por Máxima Demanda (Fuera Punta)', tarifa: `S/ ${fmt(costoPotenciaN)}/kW`, monto: maxDemandaN * costoPotenciaN });
+  if (esTiempoReal || maxDemandaN > 0) items.push({ desc: 'Cargo por Máxima Demanda (Fuera Punta)', cantidad: `${fmt(maxDemandaN)} kW`, tarifa: `S/ ${fmt(costoPotenciaN)}/kW`, monto: maxDemandaN * costoPotenciaN });
 
   const cargoMant = parseFloat(recibo.cargo_mantenimiento) || 0;
   if (cargoMant > 0) items.push({ desc: 'Mantenimiento de Red', tarifa: null, monto: cargoMant });
@@ -274,9 +280,13 @@ const drawReciboLayout = (doc: any, recibo: any, historial: any, logoPath: any, 
     }
     doc.fillColor(SLATE).fontSize(8).font('Lexend');
     doc.text(item.desc, margin + 12, y + 3, { lineBreak: false });
+    if (item.cantidad) {
+      doc.fillColor(SLATE).fontSize(7.5).font('Lexend-Medium');
+      doc.text(item.cantidad, margin + W * 0.40, y + 3.5, { width: 60, align: 'right' as const, lineBreak: false });
+    }
     if (item.tarifa) {
       doc.fillColor(SLATE_LT).fontSize(7).font('Lexend-Light');
-      doc.text(item.tarifa, margin + W * 0.48, y + 4, { width: 80, align: 'right' as const, lineBreak: false });
+      doc.text(item.tarifa, margin + W * 0.55, y + 4, { width: 60, align: 'right' as const, lineBreak: false });
     }
     doc.fillColor(NAVY).fontSize(8).font('Lexend-Bold');
     doc.text(fmt(item.monto), margin + W * 0.72, y + 3, { width: W * 0.25, align: 'right' as const, lineBreak: false });
