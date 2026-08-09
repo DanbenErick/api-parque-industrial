@@ -141,7 +141,7 @@ export class UsuarioRepository {
       rol_id, documento_identidad, nombre_razonsocial, clave_acceso, 
       cargo_representante, telefono, correo, direccion, actividad_rubro
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [rol_id, documento_identidad, nombre_razonsocial, clave_acceso, cargo_representante, telefono, correo, direccion || null, actividad_rubro || null]
+            [rol_id, documento_identidad, nombre_razonsocial, clave_acceso, cargo_representante, telefono, correo || null, direccion || null, actividad_rubro || null]
           );
           return result.insertId;
         };
@@ -153,7 +153,7 @@ export class UsuarioRepository {
          cargo_representante = ?, telefono = ?, correo = ?, 
          direccion = ?, es_activo = ?, actividad_rubro = ?
      WHERE id = ? AND deleted_at IS NULL`,
-            [rol_id, documento_identidad, nombre_razonsocial, cargo_representante, telefono, correo, direccion || null, es_activo, actividad_rubro || null, id]
+            [rol_id, documento_identidad, nombre_razonsocial, cargo_representante, telefono, correo || null, direccion || null, es_activo, actividad_rubro || null, id]
           );
           return result.affectedRows;
         };

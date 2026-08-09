@@ -31,12 +31,8 @@ export class ReciboService {
                 AND (cp.periodo_facturacion_id IS NOT NULL OR c.es_global = TRUE)
             `, [periodo_id]);
             
-            let cargoFijoConfigurado = 0;
-            for (const c of cargosActivos) {
-              if (c.tipo === 'Costo') {
-                cargoFijoConfigurado += parseFloat(c.monto_defecto) || 0;
-              }
-            }
+            // Calcular total de cargos del catálogo para el subtotal (se detallarán en recibo_cargo_dinamico)
+            const totalCargosDelCatalogo = cargosActivos.reduce((sum: number, c: any) => sum + (parseFloat(c.monto_defecto) || 0), 0);
 
             const [lecturas]: any = await connection.query(`
       SELECT l.id as lectura_id, l.consumo_calculado, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, l.max_demanda_punta, l.max_demanda_fuera_punta, m.usuario_id, m.id as medidor_id, m.cobro_instalacion_pendiente, m.tipo
@@ -129,7 +125,7 @@ export class ReciboService {
                 medidoresToUpdate.push(lectura.medidor_id);
               }
 
-              const cargo_fijo_total = cargoFijoConfigurado;
+              const cargo_fijo_total = 0; // Los cargos del catálogo se detallan en recibo_cargo_dinamico
               
               let cargo_demanda_punta = 0;
               let cargo_demanda_fuera_punta = 0;
@@ -142,7 +138,7 @@ export class ReciboService {
                 cargo_demanda_fuera_punta = max_demanda_fuera_punta * costo_potencia_fuera_punta;
               }
 
-              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + cargo_fijo_total;
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + totalCargosDelCatalogo;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -181,12 +177,12 @@ export class ReciboService {
               const cargo_energia_punta = 0;
               const cargo_factor_potencia = 0;
               const cargo_mantenimiento = 0;
-              const cargo_fijo = cargoFijoConfigurado;
+              const cargo_fijo = 0; // Los cargos del catálogo se detallan en recibo_cargo_dinamico
               
               const deuda_vencida = deudaMap[u.usuario_id] || 0;
               const instalacion_medidor = 0;
 
-              let subtotal = cargo_energia + cargo_mantenimiento + cargo_fijo + deuda_vencida + instalacion_medidor;
+              let subtotal = cargo_energia + cargo_mantenimiento + cargo_fijo + totalCargosDelCatalogo + deuda_vencida + instalacion_medidor;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -235,13 +231,34 @@ export class ReciboService {
                 `, [periodo_id, uniqueUserIds]);
               }
 
-              await connection.query(`
+              const [insertBatchResult]: any = await connection.query(`
         INSERT INTO recibo (
           usuario_id, periodo_id, lectura_id, numero_comprobante, 
           cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo, deuda_vencida, instalacion_medidor, subtotal, igv, total, 
           fecha_emision, fecha_vencimiento, estado, descuento, motivo_descuento
         ) VALUES ?
       `, [valuesToInsert]);
+
+              // Insertar cargos del catálogo como líneas detalladas en recibo_cargo_dinamico
+              if (cargosActivos.length > 0 && valuesToInsert.length > 0) {
+                const firstId = insertBatchResult.insertId;
+                const dinamicoValues: any[] = [];
+                for (let i = 0; i < valuesToInsert.length; i++) {
+                  const reciboId = firstId + i;
+                  for (const c of cargosActivos) {
+                    const montoCargo = parseFloat(c.monto_defecto) || 0;
+                    if (montoCargo > 0) {
+                      dinamicoValues.push([reciboId, c.descripcion, c.tipo, montoCargo]);
+                    }
+                  }
+                }
+                if (dinamicoValues.length > 0) {
+                  await connection.query(
+                    'INSERT INTO recibo_cargo_dinamico (recibo_id, descripcion, tipo, monto) VALUES ?',
+                    [dinamicoValues]
+                  );
+                }
+              }
             }
             
             if (medidoresToUpdate.length > 0) {
@@ -290,12 +307,8 @@ export class ReciboService {
                 AND (cp.periodo_facturacion_id IS NOT NULL OR c.es_global = TRUE)
             `, [periodo_id]);
             
-            let cargoFijoConfigurado = 0;
-            for (const c of cargosActivos) {
-              if (c.tipo === 'Costo') {
-                cargoFijoConfigurado += parseFloat(c.monto_defecto) || 0;
-              }
-            }
+            // Calcular total de cargos del catálogo para el subtotal (se detallarán en recibo_cargo_dinamico)
+            const totalCargosDelCatalogo = cargosActivos.reduce((sum: number, c: any) => sum + (parseFloat(c.monto_defecto) || 0), 0);
 
             const [recibosPrevios]: any = await connection.query(`
       SELECT lectura_id FROM recibo 
@@ -452,7 +465,7 @@ export class ReciboService {
                   instalacion_medidor = instalacion_base;
                 }
               } else {
-                cargo_fijo = cargoFijoConfigurado;
+                // cargo_fijo = 0: los cargos del catálogo se insertan en recibo_cargo_dinamico
                 if (lectura && lectura.cobro_instalacion_pendiente) {
                   instalacion_medidor = instalacion_base;
                 }
@@ -465,9 +478,9 @@ export class ReciboService {
                 deuda_vencida_actual = 0;
               }
               
-              const cargo_fijo_total = cargoFijoConfigurado;
+              const cargo_fijo_total = 0; // Los cargos del catálogo se detallan en recibo_cargo_dinamico
 
-              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + cargo_fijo_total;
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + totalCargosDelCatalogo;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -492,7 +505,7 @@ export class ReciboService {
 
               const nroComprobante = `REC-${currentYear}-${String(siguienteComprobanteId++).padStart(4, '0')}`;
 
-              await connection.query(`
+              const [insertResult]: any = await connection.query(`
         INSERT INTO recibo (
           usuario_id, periodo_id, lectura_id, numero_comprobante, 
           cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo, deuda_vencida, instalacion_medidor, subtotal, igv, total, 
@@ -503,6 +516,20 @@ export class ReciboService {
                 cargo_energia, cargo_energia_punta, cargo_factor_potencia, cargo_mantenimiento, cargo_fijo_total, deuda_vencida_aplicada, instalacion_medidor, subtotal, igv, total,
                 fechaEmision, fechaVencimiento, estado, descuento, motivo_descuento
               ]);
+
+              // Insertar cargos del catálogo como líneas detalladas en recibo_cargo_dinamico
+              if (cargosActivos.length > 0) {
+                const reciboId = insertResult.insertId;
+                const dinamicoValues: any[] = cargosActivos
+                  .filter((c: any) => (parseFloat(c.monto_defecto) || 0) > 0)
+                  .map((c: any) => [reciboId, c.descripcion, c.tipo, parseFloat(c.monto_defecto)]);
+                if (dinamicoValues.length > 0) {
+                  await connection.query(
+                    'INSERT INTO recibo_cargo_dinamico (recibo_id, descripcion, tipo, monto) VALUES ?',
+                    [dinamicoValues]
+                  );
+                }
+              }
               
               if (lectura && lectura.cobro_instalacion_pendiente) {
                 await connection.query('UPDATE medidor SET cobro_instalacion_pendiente = FALSE WHERE id = ?', [lectura.medidor_id]);
