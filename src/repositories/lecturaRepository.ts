@@ -23,7 +23,7 @@ export class LecturaRepository {
            l.es_cambio_medidor, l.lectura_final_viejo, l.lectura_inicial_nuevo,
            l.lectura_final_viejo_punta, l.lectura_inicial_nuevo_punta,
            l.lectura_actual_original, l.lectura_actual_punta_original, l.factor_potencia_original,
-           m.num_serie, m.tipo as medidor_tipo,
+           m.num_serie, m.tipo as medidor_tipo, m.direccion as medidor_direccion,
            u.nombre_razonsocial as propietario, u.direccion,
            op.nombre_razonsocial as operario,
            pf.mes_anio as periodo, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.factor_multiplicador

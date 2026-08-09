@@ -32,7 +32,7 @@ export class MedidorRepository {
            COALESCE(ul.max_demanda_punta, m.demanda_maxima_punta, 0) as ultima_demanda_maxima_punta
     ${baseQuery}
     ORDER BY u.nombre_razonsocial ASC
-    LIMIT 50
+    LIMIT 100000
   `, params);
           return rows;
         };
