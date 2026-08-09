@@ -48,6 +48,26 @@ interface IUpdateUsuarioBody {
 export class UsuarioController {
   constructor(private pdfService: PdfService, private excelService: ExcelService, private usuarioRepo: UsuarioRepository, private medidorRepo: MedidorRepository) { }
 
+  public generarDniTemporal = async (_req: Request, res: Response): Promise<any> => {
+    try {
+      let dni: string;
+      let intentos = 0;
+      do {
+        // Prefijo 99 + 6 dígitos aleatorios → DNI temporal de 8 dígitos
+        const aleatorio = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
+        dni = `99${aleatorio}`;
+        const existe = await this.usuarioRepo.findByDocumento(dni);
+        if (!existe) break;
+        intentos++;
+      } while (intentos < 20);
+
+      return res.json({ dni });
+    } catch (error) {
+      console.error('Error generando DNI temporal:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  };
+
   public getUsuarios = async (req: Request<{}, any, any, IGetUsuariosQuery>, res: Response): Promise<any> => {
     try {
       const search = (req.query.search as string) || '';
@@ -116,6 +136,7 @@ export class UsuarioController {
               num_serie: m.num_serie,
               tipo: m.tipo || 'Normal',
               operativo: true,
+              direccion: m.direccion || null,
               lectura_inicial: m.lectura_inicial || 0,
               lectura_inicial_punta: m.lectura_inicial_punta || 0,
               demanda_maxima_fuera_punta: m.demanda_maxima_fuera_punta || 0,

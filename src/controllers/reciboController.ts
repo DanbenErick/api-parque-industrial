@@ -62,7 +62,8 @@ export class ReciboController {
               estado: req.query.estado,
               search: req.query.search
             };
-            const recibos = await this.reciboRepo.findAll(filters);
+            // Se pasa limit 100000 para que el frontend maneje la paginación con todos los datos
+            const recibos = await this.reciboRepo.findAll(filters, 1, 100000);
             res.json(recibos);
           } catch (error: any) {
             console.error('Error al obtener recibos:', error);

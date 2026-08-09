@@ -61,7 +61,7 @@ export class UsuarioRepository {
            COALESCE(rp.deuda_total, 0) as deuda_total,
            COALESCE(rp.recibos_pendientes, 0) as recibos_pendientes
     ${baseQuery}
-    ORDER BY u.created_at DESC 
+    ORDER BY u.nombre_razonsocial ASC 
     LIMIT ? OFFSET ?
   `;
           

@@ -20,6 +20,7 @@ export class UsuarioRoutes {
         this.router.use(this.authMiddleware.authorizeRole([RolUsuario.ADMIN, RolUsuario.OPERARIO]));
 
         this.router.get('/stats', this.usuarioController.getUsuariosStats);
+        this.router.get('/generar-dni-temporal', this.usuarioController.generarDniTemporal);
         this.router.get('/', this.usuarioController.getUsuarios);
         this.router.get('/export/excel', this.usuarioController.exportExcel);
         this.router.get('/export/pdf', this.usuarioController.exportPdf);
