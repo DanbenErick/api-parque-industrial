@@ -259,3 +259,21 @@ CREATE TABLE `usuario` (
   CONSTRAINT `fk_usuario_rol` FOREIGN KEY (`rol_id`) REFERENCES `rol` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT `chk_usuario_documento` CHECK (((length(`documento_identidad`) in (8,11)) and regexp_like(`documento_identidad`,_utf8mb4'^[0-9]+$')))
 ) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Usuarios del sistema: staff operativo y miembros/inquilinos';
+
+CREATE TABLE `cargo_personalizado` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `usuario_id` int NOT NULL,
+  `periodo_id` int NOT NULL,
+  `descripcion` varchar(255) NOT NULL,
+  `monto` decimal(10,2) NOT NULL,
+  `estado` varchar(50) DEFAULT 'Pendiente',
+  `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` timestamp NULL DEFAULT NULL,
+  `created_by` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `fk_cargo_personalizado_usuario` (`usuario_id`),
+  KEY `fk_cargo_personalizado_periodo` (`periodo_id`),
+  CONSTRAINT `fk_cargo_personalizado_usuario` FOREIGN KEY (`usuario_id`) REFERENCES `usuario` (`id`),
+  CONSTRAINT `fk_cargo_personalizado_periodo` FOREIGN KEY (`periodo_id`) REFERENCES `periodo_facturacion` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+

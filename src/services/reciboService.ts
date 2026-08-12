@@ -34,6 +34,17 @@ export class ReciboService {
             // Calcular total de cargos del catálogo para el subtotal (se detallarán en recibo_cargo_dinamico)
             const totalCargosDelCatalogo = cargosActivos.reduce((sum: number, c: any) => sum + (parseFloat(c.monto_defecto) || 0), 0);
 
+            const [cargosPersonalizados]: any = await connection.query(`
+              SELECT id, usuario_id, descripcion, monto
+              FROM cargo_personalizado
+              WHERE periodo_id = ? AND estado = 'Pendiente' AND deleted_at IS NULL
+            `, [periodo_id]);
+            const cargosPersonalizadosMap: any = {};
+            cargosPersonalizados.forEach((c: any) => {
+              if (!cargosPersonalizadosMap[c.usuario_id]) cargosPersonalizadosMap[c.usuario_id] = [];
+              cargosPersonalizadosMap[c.usuario_id].push(c);
+            });
+
             const [lecturas]: any = await connection.query(`
       SELECT l.id as lectura_id, l.consumo_calculado, l.consumo_calculado_punta, l.factor_potencia, l.precio_factor_potencia, l.max_demanda_punta, l.max_demanda_fuera_punta, m.usuario_id, m.id as medidor_id, m.cobro_instalacion_pendiente, m.tipo
       FROM lectura l
@@ -138,7 +149,10 @@ export class ReciboService {
                 cargo_demanda_fuera_punta = max_demanda_fuera_punta * costo_potencia_fuera_punta;
               }
 
-              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + totalCargosDelCatalogo;
+              const customCharges = cargosPersonalizadosMap[lectura.usuario_id] || [];
+              const totalCustom = customCharges.reduce((sum: number, c: any) => sum + parseFloat(c.monto), 0);
+
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + totalCargosDelCatalogo + totalCustom;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -153,6 +167,8 @@ export class ReciboService {
                 motivo_descuento = 'Saldo a favor aplicado';
                 subtotal -= descuento;
               }
+
+              subtotal = Math.round(subtotal * 10) / 10; // Redondeo a 10 céntimos
 
               const igv = 0;
               const total = subtotal + igv;
@@ -182,7 +198,10 @@ export class ReciboService {
               const deuda_vencida = deudaMap[u.usuario_id] || 0;
               const instalacion_medidor = 0;
 
-              let subtotal = cargo_energia + cargo_mantenimiento + cargo_fijo + totalCargosDelCatalogo + deuda_vencida + instalacion_medidor;
+              const customCharges = cargosPersonalizadosMap[u.usuario_id] || [];
+              const totalCustom = customCharges.reduce((sum: number, c: any) => sum + parseFloat(c.monto), 0);
+
+              let subtotal = cargo_energia + cargo_mantenimiento + cargo_fijo + totalCargosDelCatalogo + deuda_vencida + instalacion_medidor + totalCustom;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -197,6 +216,8 @@ export class ReciboService {
                 motivo_descuento = 'Saldo a favor aplicado';
                 subtotal -= descuento;
               }
+
+              subtotal = Math.round(subtotal * 10) / 10; // Redondeo a 10 céntimos
 
               const igv = 0;
               const total = subtotal + igv;
@@ -240,16 +261,23 @@ export class ReciboService {
       `, [valuesToInsert]);
 
               // Insertar cargos del catálogo como líneas detalladas en recibo_cargo_dinamico
-              if (cargosActivos.length > 0 && valuesToInsert.length > 0) {
+              if ((cargosActivos.length > 0 || cargosPersonalizados.length > 0) && valuesToInsert.length > 0) {
                 const firstId = insertBatchResult.insertId;
                 const dinamicoValues: any[] = [];
                 for (let i = 0; i < valuesToInsert.length; i++) {
                   const reciboId = firstId + i;
+                  const userId = valuesToInsert[i][0];
+                  
                   for (const c of cargosActivos) {
                     const montoCargo = parseFloat(c.monto_defecto) || 0;
                     if (montoCargo > 0) {
                       dinamicoValues.push([reciboId, c.descripcion, c.tipo, montoCargo]);
                     }
+                  }
+
+                  const customCharges = cargosPersonalizadosMap[userId] || [];
+                  for (const c of customCharges) {
+                    dinamicoValues.push([reciboId, c.descripcion, 'Personalizado', parseFloat(c.monto)]);
                   }
                 }
                 if (dinamicoValues.length > 0) {
@@ -261,6 +289,11 @@ export class ReciboService {
               }
             }
             
+            const idsToUpdate = cargosPersonalizados.map((c: any) => c.id);
+            if (idsToUpdate.length > 0) {
+              await connection.query('UPDATE cargo_personalizado SET estado = "Facturado" WHERE id IN (?)', [idsToUpdate]);
+            }
+
             if (medidoresToUpdate.length > 0) {
               const placeholders = medidoresToUpdate.map(() => '?').join(',');
               await connection.query(`UPDATE medidor SET cobro_instalacion_pendiente = FALSE WHERE id IN (${placeholders})`, medidoresToUpdate);
@@ -309,6 +342,13 @@ export class ReciboService {
             
             // Calcular total de cargos del catálogo para el subtotal (se detallarán en recibo_cargo_dinamico)
             const totalCargosDelCatalogo = cargosActivos.reduce((sum: number, c: any) => sum + (parseFloat(c.monto_defecto) || 0), 0);
+
+            const [cargosPersonalizados]: any = await connection.query(`
+              SELECT id, descripcion, monto
+              FROM cargo_personalizado
+              WHERE periodo_id = ? AND usuario_id = ? AND estado = 'Pendiente' AND deleted_at IS NULL
+            `, [periodo_id, usuario_id]);
+            const totalCustom = cargosPersonalizados.reduce((sum: number, c: any) => sum + parseFloat(c.monto), 0);
 
             const [recibosPrevios]: any = await connection.query(`
       SELECT lectura_id FROM recibo 
@@ -480,7 +520,7 @@ export class ReciboService {
               
               const cargo_fijo_total = 0; // Los cargos del catálogo se detallan en recibo_cargo_dinamico
 
-              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + totalCargosDelCatalogo;
+              let subtotal = cargo_energia + cargo_energia_punta + cargo_factor_potencia + cargo_demanda_punta + cargo_demanda_fuera_punta + cargo_mantenimiento + deuda_vencida_aplicada + instalacion_medidor + totalCargosDelCatalogo + totalCustom;
               
               let descuento = 0;
               let motivo_descuento = null;
@@ -495,6 +535,8 @@ export class ReciboService {
                 motivo_descuento = 'Saldo a favor aplicado';
                 subtotal -= descuento;
               }
+
+              subtotal = Math.round(subtotal * 10) / 10; // Redondeo a 10 céntimos
 
               const igv = 0;
               const total = subtotal + igv;
@@ -518,11 +560,16 @@ export class ReciboService {
               ]);
 
               // Insertar cargos del catálogo como líneas detalladas en recibo_cargo_dinamico
-              if (cargosActivos.length > 0) {
+              if (cargosActivos.length > 0 || cargosPersonalizados.length > 0) {
                 const reciboId = insertResult.insertId;
                 const dinamicoValues: any[] = cargosActivos
                   .filter((c: any) => (parseFloat(c.monto_defecto) || 0) > 0)
                   .map((c: any) => [reciboId, c.descripcion, c.tipo, parseFloat(c.monto_defecto)]);
+                
+                for (const c of cargosPersonalizados) {
+                  dinamicoValues.push([reciboId, c.descripcion, 'Personalizado', parseFloat(c.monto)]);
+                }
+
                 if (dinamicoValues.length > 0) {
                   await connection.query(
                     'INSERT INTO recibo_cargo_dinamico (recibo_id, descripcion, tipo, monto) VALUES ?',
@@ -531,6 +578,11 @@ export class ReciboService {
                 }
               }
               
+              if (cargosPersonalizados.length > 0) {
+                const idsToUpdate = cargosPersonalizados.map((c: any) => c.id);
+                await connection.query('UPDATE cargo_personalizado SET estado = "Facturado" WHERE id IN (?)', [idsToUpdate]);
+              }
+
               if (lectura && lectura.cobro_instalacion_pendiente) {
                 await connection.query('UPDATE medidor SET cobro_instalacion_pendiente = FALSE WHERE id = ?', [lectura.medidor_id]);
               }
@@ -602,6 +654,8 @@ export class ReciboService {
             subtotal = subtotal - descuento_val;
             if (subtotal < 0) subtotal = 0; // Evitar subtotales negativos
                              
+            subtotal = Math.round(subtotal * 10) / 10; // Redondeo a 10 céntimos
+
             const igv = 0; // Configurable
             const total = subtotal + igv;
 
@@ -652,6 +706,18 @@ export class ReciboService {
               `UPDATE recibo SET estado = '${EstadoRecibo.ANULADO}', motivo_anulacion = ? WHERE id = ? AND deleted_at IS NULL`,
               [motivo, id]
             );
+
+            // Revertir cargos personalizados a estado Pendiente
+            const [reciboData]: any = await connection.query('SELECT usuario_id, periodo_id FROM recibo WHERE id = ?', [id]);
+            if (reciboData && reciboData.length > 0) {
+              const { usuario_id, periodo_id } = reciboData[0];
+              await connection.query(`
+                UPDATE cargo_personalizado 
+                SET estado = 'Pendiente' 
+                WHERE usuario_id = ? AND periodo_id = ? AND estado = 'Facturado'
+              `, [usuario_id, periodo_id]);
+            }
+
             await connection.commit();
             return result.affectedRows;
           } catch (error) {

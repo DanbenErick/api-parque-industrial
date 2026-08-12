@@ -27,6 +27,7 @@ const db = new Database(logger);
 import { AuditoriaRepository } from './repositories/auditoriaRepository';
 import { AuthRepository } from './repositories/authRepository';
 import { CatalogoCargoRepository } from './repositories/catalogoCargoRepository';
+import { CargoPersonalizadoRepository } from './repositories/cargoPersonalizadoRepository';
 import { ConfigRepository } from './repositories/configRepository';
 import { LecturaRepository } from './repositories/lecturaRepository';
 import { MedidorRepository } from './repositories/medidorRepository';
@@ -38,6 +39,7 @@ import { UsuarioRepository } from './repositories/usuarioRepository';
 const auditoriaRepo = new AuditoriaRepository(db);
 const authRepo = new AuthRepository(db);
 const catalogoCargoRepo = new CatalogoCargoRepository(db);
+const cargoPersonalizadoRepo = new CargoPersonalizadoRepository(db);
 const configRepo = new ConfigRepository(db);
 const lecturaRepo = new LecturaRepository(db);
 const medidorRepo = new MedidorRepository(db);
@@ -70,6 +72,7 @@ const validatorsMiddleware = new ValidatorsMiddleware();
 // Controllers
 import { AuthController } from './controllers/authController';
 import { CatalogoCargoController } from './controllers/catalogoCargoController';
+import { CargoPersonalizadoController } from './controllers/cargoPersonalizadoController';
 import { ConfigController } from './controllers/configController';
 import { DashboardController } from './controllers/dashboardController';
 import { LecturaController } from './controllers/lecturaController';
@@ -81,6 +84,7 @@ import { UsuarioController } from './controllers/usuarioController';
 
 const authController = new AuthController(authRepo);
 const catalogoCargoController = new CatalogoCargoController(catalogoCargoRepo);
+const cargoPersonalizadoController = new CargoPersonalizadoController(cargoPersonalizadoRepo, db);
 const configController = new ConfigController(configRepo);
 const dashboardController = new DashboardController(db);
 const lecturaController = new LecturaController(lecturaRepo, db);
@@ -93,6 +97,7 @@ const usuarioController = new UsuarioController(pdfService, excelService, usuari
 // Routes
 import { AuthRoutes } from './routes/authRoutes';
 import { CatalogoCargoRoutes } from './routes/catalogoCargoRoutes';
+import { CargoPersonalizadoRoutes } from './routes/cargoPersonalizadoRoutes';
 import { ConfigRoutes } from './routes/configRoutes';
 import { DashboardRoutes } from './routes/dashboardRoutes';
 import { LecturaRoutes } from './routes/lecturaRoutes';
@@ -104,6 +109,7 @@ import { UsuarioRoutes } from './routes/usuarioRoutes';
 
 const authRoutes = new AuthRoutes(authController, authMiddleware, validatorsMiddleware).getRouter();
 const catalogoCargoRoutes = new CatalogoCargoRoutes(catalogoCargoController, authMiddleware).getRouter();
+const cargoPersonalizadoRoutes = new CargoPersonalizadoRoutes(cargoPersonalizadoController, authMiddleware).getRouter();
 const configRoutes = new ConfigRoutes(configController, authMiddleware).getRouter();
 const dashboardRoutes = new DashboardRoutes(dashboardController, authMiddleware).getRouter();
 const lecturaRoutes = new LecturaRoutes(lecturaController, authMiddleware).getRouter();
@@ -164,6 +170,7 @@ app.use('/api/pagos', pagoRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/catalogo-cargos', catalogoCargoRoutes);
+app.use('/api/cargos-personalizados', cargoPersonalizadoRoutes);
 app.use('/api/importar', importRoutes);
 
 // Error handler
