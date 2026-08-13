@@ -108,8 +108,8 @@ export class ReciboService {
               const tarifa_kwh = esTR ? parseFloat(periodo.tarifa_kwh_tr) : parseFloat(periodo.tarifa_kwh) || 0;
               const tarifa_mantenimiento = esTR ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
               
-              const cargo_energia = consumo * tarifa_kwh;
-              const cargo_mantenimiento = tarifa_mantenimiento || 0;
+              const cargo_energia = Math.round((consumo * tarifa_kwh) * 10) / 10;
+              const cargo_mantenimiento = Math.round((tarifa_mantenimiento || 0) * 10) / 10;
 
               let cargo_energia_punta = 0;
               let cargo_factor_potencia = 0;
@@ -117,11 +117,11 @@ export class ReciboService {
               if (esTR) {
                 const consumo_punta = parseFloat(lectura.consumo_calculado_punta) || 0;
                 const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
-                cargo_energia_punta = consumo_punta * tarifa_kwh_punta;
+                cargo_energia_punta = Math.round((consumo_punta * tarifa_kwh_punta) * 10) / 10;
 
                 const consumo_reactivo = parseFloat(lectura.factor_potencia) || 0;
                 const tarifa_reactiva = parseFloat(periodo.precio_energia_reactiva) || 0;
-                cargo_factor_potencia = consumo_reactivo * tarifa_reactiva;
+                cargo_factor_potencia = Math.round((consumo_reactivo * tarifa_reactiva) * 10) / 10;
               }
               
               let deuda_vencida_aplicada = 0;
@@ -145,8 +145,8 @@ export class ReciboService {
                 const max_demanda_fuera_punta = parseFloat(lectura.max_demanda_fuera_punta) || 0;
                 const costo_potencia = parseFloat(periodo.costo_potencia) || 0;
                 const costo_potencia_fuera_punta = parseFloat(periodo.costo_potencia_fuera_punta) || 0;
-                cargo_demanda_punta = max_demanda_punta * costo_potencia;
-                cargo_demanda_fuera_punta = max_demanda_fuera_punta * costo_potencia_fuera_punta;
+                cargo_demanda_punta = Math.round((max_demanda_punta * costo_potencia) * 10) / 10;
+                cargo_demanda_fuera_punta = Math.round((max_demanda_fuera_punta * costo_potencia_fuera_punta) * 10) / 10;
               }
 
               const customCharges = cargosPersonalizadosMap[lectura.usuario_id] || [];
@@ -481,24 +481,24 @@ export class ReciboService {
                 const tarifa_kwh = esTR ? parseFloat(periodo.tarifa_kwh_tr) : parseFloat(periodo.tarifa_kwh) || 0;
                 const tarifa_mantenimiento = esTR ? parseFloat(periodo.tarifa_mantenimiento_tiempo_real) : parseFloat(periodo.tarifa_mantenimiento_normal);
                 
-                cargo_energia = consumo * tarifa_kwh;
-                cargo_mantenimiento = tarifa_mantenimiento || 0;
+                cargo_energia = Math.round((consumo * tarifa_kwh) * 10) / 10;
+                cargo_mantenimiento = Math.round((tarifa_mantenimiento || 0) * 10) / 10;
 
                 if (esTR) {
                   const consumo_punta = parseFloat(lectura.consumo_calculado_punta) || 0;
                   const tarifa_kwh_punta = parseFloat(periodo.tarifa_kwh_punta) || 0;
-                  cargo_energia_punta = consumo_punta * tarifa_kwh_punta;
+                  cargo_energia_punta = Math.round((consumo_punta * tarifa_kwh_punta) * 10) / 10;
                   
                   const consumo_reactivo = parseFloat(lectura.factor_potencia) || 0;
                   const tarifa_reactiva = parseFloat(periodo.precio_energia_reactiva) || 0;
-                  cargo_factor_potencia = consumo_reactivo * tarifa_reactiva;
+                  cargo_factor_potencia = Math.round((consumo_reactivo * tarifa_reactiva) * 10) / 10;
 
                   const max_demanda_punta = parseFloat(lectura.max_demanda_punta) || 0;
                   const max_demanda_fuera_punta = parseFloat(lectura.max_demanda_fuera_punta) || 0;
                   const costo_potencia = parseFloat(periodo.costo_potencia) || 0;
                   const costo_potencia_fuera_punta = parseFloat(periodo.costo_potencia_fuera_punta) || 0;
-                  cargo_demanda_punta = max_demanda_punta * costo_potencia;
-                  cargo_demanda_fuera_punta = max_demanda_fuera_punta * costo_potencia_fuera_punta;
+                  cargo_demanda_punta = Math.round((max_demanda_punta * costo_potencia) * 10) / 10;
+                  cargo_demanda_fuera_punta = Math.round((max_demanda_fuera_punta * costo_potencia_fuera_punta) * 10) / 10;
                 }
 
                 if (lectura.cobro_instalacion_pendiente) {

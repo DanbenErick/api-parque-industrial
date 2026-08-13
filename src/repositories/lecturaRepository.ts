@@ -26,7 +26,8 @@ export class LecturaRepository {
            m.num_serie, m.tipo as medidor_tipo, m.direccion as medidor_direccion,
            u.nombre_razonsocial as propietario, u.direccion,
            op.nombre_razonsocial as operario,
-           pf.mes_anio as periodo, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.factor_multiplicador
+           pf.mes_anio as periodo, pf.tarifa_kwh, pf.tarifa_kwh_punta, pf.factor_multiplicador,
+           pf.tarifa_kwh_tr, pf.costo_potencia, pf.costo_potencia_fuera_punta
     FROM lectura l
     INNER JOIN medidor m ON l.medidor_id = m.id
     INNER JOIN usuario u ON m.usuario_id = u.id

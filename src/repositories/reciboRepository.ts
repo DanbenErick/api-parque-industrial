@@ -33,7 +33,7 @@ export class ReciboRepository {
           const offset = (page - 1) * limit;
           
           let query = `
-    SELECT r.id, r.numero_comprobante, r.cargo_energia, r.cargo_energia_punta, r.cargo_factor_potencia, r.cargo_mantenimiento,
+    SELECT r.id, r.usuario_id, r.periodo_id, r.numero_comprobante, r.cargo_energia, r.cargo_energia_punta, r.cargo_factor_potencia, r.cargo_mantenimiento,
            r.cargo_fijo, r.cargo_corte, r.multa_manipulacion, r.multa_reconexion, r.instalacion_medidor,
            r.deuda_pendiente, r.deuda_consumo, r.deuda_vencida, r.descuento, r.motivo_descuento,
            r.subtotal, r.igv, r.total, r.fecha_emision, r.fecha_vencimiento, r.estado,
